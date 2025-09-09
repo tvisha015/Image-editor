@@ -65,7 +65,11 @@ const EditorView: FC<{ imageUrl: string; onStartNew: () => void }> = ({
     imgElement.src = imageUrl;
     imgElement.onload = () => {
       patternSourceRef.current = imgElement;
-
+      
+      // Store the original image dimensions
+      const originalWidth = imgElement.width;
+      const originalHeight = imgElement.height;
+      
       fabricInstance.Image.fromURL(
         imageUrl,
         (img: any) => {
@@ -75,8 +79,13 @@ const EditorView: FC<{ imageUrl: string; onStartNew: () => void }> = ({
             (canvas.getHeight() - padding) / (img.height || 1)
           );
           img.scale(scale);
-          img.selectable = false;
-          img.evented = false;
+          // img.selectable = false;
+          // img.evented = false;
+          
+          // Calculate the scaled dimensions for the checkerboard
+          const scaledWidth = Math.round(originalWidth * scale);
+          const scaledHeight = Math.round(originalHeight * scale);
+          setImageDimensions({ width: scaledWidth, height: scaledHeight });
 
           canvas.add(img);
           canvas.centerObject(img);
@@ -96,18 +105,23 @@ const EditorView: FC<{ imageUrl: string; onStartNew: () => void }> = ({
 
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
-    if (!canvas || !window.fabric) return;
+    const image = imageRef.current; // Get the image object from our ref
+
+    if (!canvas || !image) return; // Wait until both are ready
 
     if (activeTool === "pan") {
       canvas.isDrawingMode = false;
-    } else {
+      image.selectable = true; // MAKE image selectable
+      image.evented = true;    // ALLOW image to receive mouse events
+    } else { // For "erase" or "restore" tools
       canvas.isDrawingMode = true;
+      image.selectable = false; // MAKE image NOT selectable
+      image.evented = false;    // PREVENT image from receiving mouse events
+      
+      // The rest of the brush setup logic remains the same
       if (activeTool === "erase") {
-        // const eraserBrush = new window.fabric.EraserBrush(canvas);
-        // 1. Create a standard PencilBrush
         const eraserBrush = new window.fabric.PencilBrush(canvas);
-        // 2. Set the property that turns it into an eraser
-        eraserBrush.globalCompositeOperation = "destination-out";
+        eraserBrush.globalCompositeOperation = 'destination-out';
         eraserBrush.width = brushSize;
         canvas.freeDrawingBrush = eraserBrush;
       } else if (activeTool === "restore" && patternSourceRef.current) {
@@ -117,6 +131,8 @@ const EditorView: FC<{ imageUrl: string; onStartNew: () => void }> = ({
         canvas.freeDrawingBrush = restoreBrush;
       }
     }
+    // Rerender the canvas to apply the changes
+    canvas.renderAll(); 
   }, [activeTool, brushSize]);
 
   const handleDownload = () => {
@@ -136,6 +152,9 @@ const EditorView: FC<{ imageUrl: string; onStartNew: () => void }> = ({
     link.click();
     document.body.removeChild(link);
   };
+
+  // State to track image dimensions for the checkerboard pattern
+  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
 
   return (
     <div className="w-full max-w-screen-2xl h-[90vh] bg-slate-800 rounded-2xl shadow-2xl flex overflow-hidden border border-slate-700">
@@ -251,15 +270,24 @@ const EditorView: FC<{ imageUrl: string; onStartNew: () => void }> = ({
             </button>
           </div>
         </header>
-        <div
-          className="flex-1 p-6 flex items-center justify-center"
-          style={{
-            backgroundImage: `url("${checkerboardPattern}")`,
-            backgroundRepeat: "repeat",
-          }}
-        >
-          <div className="canvas-container w-full h-full">
-            <canvas ref={canvasRef} />
+        <div className="flex-1 p-6 flex items-center justify-center bg-slate-900">
+          {/* Centered checkerboard pattern with exact image dimensions */}
+          <div 
+            className="relative flex items-center justify-center w-full h-full"
+          >
+            {/* Checkerboard background with exact image dimensions */}
+            <div 
+              className="absolute"
+              style={{
+                width: `${imageDimensions.width}px`,
+                height: `${imageDimensions.height}px`,
+                backgroundImage: `url("${checkerboardPattern}")`,
+                backgroundRepeat: "repeat",
+              }}
+            ></div>
+            <div className="canvas-container w-full h-full">
+              <canvas ref={canvasRef} />
+            </div>
           </div>
         </div>
       </main>
