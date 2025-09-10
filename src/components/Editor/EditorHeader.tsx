@@ -14,20 +14,28 @@ const EditorHeader: FC<{
   <header className="flex justify-between items-center p-4 border-b border-slate-700">
     <div className="flex items-center gap-4">
       <h1 className="text-xl font-semibold text-white mr-4 hidden sm:block">Editor</h1>
-      <div className="flex items-center gap-3 text-slate-400">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" />
-        </svg>
-        <input
-          type="range"
-          min="5"
-          max="100"
-          value={brushSize}
-          onChange={(e) => setBrushSize(Number(e.target.value))}
-          className="w-32 cursor-pointer accent-purple-600"
-          disabled={activeTool === "pan"}
-        />
-      </div>
+      {activeTool === "brush" ? (
+        <div className="flex items-center gap-3 text-slate-400">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" />
+          </svg>
+           <input
+             type="range"
+             min="0"
+             max="100"
+             value={brushSize}
+             onChange={(e) => setBrushSize(Number(e.target.value))}
+             className="w-32 cursor-pointer accent-purple-600"
+           />
+          <div className="text-sm text-slate-300">
+            Size: {brushSize}
+          </div>
+        </div>
+      ) : (
+        <div className="text-sm text-slate-500">
+          Select a tool to start editing
+        </div>
+      )}
     </div>
     <div className="flex items-center gap-4">
       <button onClick={onStartNew} className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
