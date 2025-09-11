@@ -4,35 +4,62 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import UploadView from '@/components/UploadView';
+import axios from 'axios';
 
 export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter(); // Next.js's navigation hook
 
-  const handleImageUpload = (file: File) => {
-    setIsLoading(true);
-    const reader = new FileReader();
+const handleImageUpload = async (file: File) => {
+  setIsLoading(true);
+  
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Make the API call, expecting a JSON response (removed responseType: 'blob')
+    const response = await axios.post('https://img-bg-remover.makeitlive.info/remove-bg-single/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 30000 // 30 seconds timeout
+    });
 
-    reader.onload = (event: ProgressEvent<FileReader>) => {
-      const imageUrl = event.target?.result as string;
-      console.log('Image URL:', imageUrl);
-      if (!imageUrl) {
-        setIsLoading(false);
-        return;
-      }
+    // Check if the API call was successful and get the URL from the JSON data
+    if (response.data && response.data.status === 'success' && response.data.url) {
+      const imageUrl = response.data.url;
       
-      // Simulate API call or processing
-      setTimeout(() => {
-        // 1. Save the image data to sessionStorage
-        sessionStorage.setItem('uploadedImage', imageUrl);
-        
-        // 2. Navigate to the editor page
-        router.push('/editor');
-      }, 2000);
-    };
+      // Save the processed image URL from the API directly to sessionStorage
+      sessionStorage.setItem('uploadedImage', imageUrl);
+      sessionStorage.setItem('bgRemoved', 'true');
+      
+      // Navigate to the editor page
+      router.push('/editor');
 
-    reader.readAsDataURL(file);
-  };
+    } else {
+      // Handle cases where the API might not return a URL
+      throw new Error('API request was successful, but no image URL was returned.');
+    }
+    
+  } catch (error) {
+    console.error('Error removing background:', error);
+    
+    // Your original fallback logic is perfect for handling errors
+    const fallbackReader = new FileReader();
+    fallbackReader.onload = (event: ProgressEvent<FileReader>) => {
+      const imageUrl = event.target?.result as string;
+      if (imageUrl) {
+        sessionStorage.setItem('uploadedImage', imageUrl);
+        alert('Background removal service is currently unavailable. Loading original image in editor.');
+        router.push('/editor');
+      } else {
+        alert('Failed to process the image. Please try again.');
+        setIsLoading(false);
+      }
+    };
+    fallbackReader.readAsDataURL(file);
+  }
+};
 
   return (
     <main className="bg-slate-900 min-h-screen w-full flex items-center justify-center p-4 font-sans">

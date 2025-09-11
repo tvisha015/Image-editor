@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, FC } from 'react';
+import { useRouter } from 'next/navigation';
 
 // --- SVG Icon for UI ---
 const UploadIcon: FC<{ className?: string }> = ({ className }) => (
@@ -11,12 +12,32 @@ const UploadIcon: FC<{ className?: string }> = ({ className }) => (
 );
 
 // --- Upload View Component ---
-const UploadView: FC<{ onImageUpload: (file: File) => void; isLoading: boolean }> = ({ onImageUpload, isLoading }) => {
+const UploadView: FC<{ onImageUpload: (file: File) => Promise<void>; isLoading: boolean }> = ({ onImageUpload, isLoading }) => {
     const [isDragging, setIsDragging] = useState(false);
+
+    const validateImageFile = (file: File): boolean => {
+        // Check if file is an image
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file (JPEG, PNG, etc.)');
+            return false;
+        }
+        
+        // Check file size (limit to 10MB)
+        const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+        if (file.size > maxSize) {
+            alert('Image size should be less than 10MB');
+            return false;
+        }
+        
+        return true;
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            onImageUpload(e.target.files[0]);
+            const file = e.target.files[0];
+            if (validateImageFile(file)) {
+                onImageUpload(file);
+            }
         }
     };
 
@@ -26,7 +47,10 @@ const UploadView: FC<{ onImageUpload: (file: File) => void; isLoading: boolean }
         e.preventDefault();
         setIsDragging(false);
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            onImageUpload(e.dataTransfer.files[0]);
+            const file = e.dataTransfer.files[0];
+            if (validateImageFile(file)) {
+                onImageUpload(file);
+            }
         }
     };
 
@@ -49,7 +73,8 @@ const UploadView: FC<{ onImageUpload: (file: File) => void; isLoading: boolean }
                         {isLoading ? (
                             <div className="flex flex-col items-center justify-center space-y-4">
                                 <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="text-slate-300 font-medium text-lg">Processing image...</p>
+                                <p className="text-slate-300 font-medium text-lg">Removing background...</p>
+                                <p className="text-slate-400 text-sm">This may take a few moments</p>
                             </div>
                         ) : (
                             <>
