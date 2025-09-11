@@ -23,27 +23,14 @@ export const useFabric = (
 
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
 
-  // Function to constrain object movement
-  const constrainObjectMovement = (obj: any, boundingBox: { width: number; height: number }) => {
-    const objWidth = obj.getScaledWidth();
-    const objHeight = obj.getScaledHeight();
-    const maxX = boundingBox.width / 2 - objWidth / 2;
-    const maxY = boundingBox.height / 2 - objHeight / 2;
-    const minX = -maxX;
-    const minY = -maxY;
-
-    if (obj.left < minX) obj.left = minX;
-    if (obj.left > maxX) obj.left = maxX;
-    if (obj.top < minY) obj.top = minY;
-    if (obj.top > maxY) obj.top = maxY;
-  };
-
   // Effect for canvas initialization
   useEffect(() => {
     if (!imageUrl || !canvasRef.current || !window.fabric) return;
 
     const fabricInstance = window.fabric;
-    const canvas = new fabricInstance.Canvas(canvasRef.current);
+    const canvas = new fabricInstance.Canvas(canvasRef.current, {
+      backgroundColor: 'transparent'
+    });
     fabricCanvasRef.current = canvas;
 
     const imgElement = new Image();
@@ -70,22 +57,19 @@ export const useFabric = (
         canvas.setHeight(scaledHeight);
         canvas.calcOffset();
 
-        img.set({
-          lockUniScaling: true,
-          lockScalingX: true,
-          lockScalingY: true,
-          hoverCursor: "pointer",
-        });
-        img.setControlsVisibility({ mtr: true, mt: false, mb: false, ml: false, mr: false, bl: false, br: false, tl: false, tr: false });
+         img.set({
+           lockUniScaling: true,
+           lockScalingX: true,
+           lockScalingY: true,
+           hoverCursor: "default",
+           selectable: false,
+           evented: false,
+         });
+         img.setControlsVisibility({ mtr: false, mt: false, mb: false, ml: false, mr: false, bl: false, br: false, tl: false, tr: false });
 
         canvas.add(img);
         canvas.centerObject(img);
         imageRef.current = img;
-
-        img.on("moving", () => {
-          constrainObjectMovement(img, { width: scaledWidth, height: scaledHeight });
-          canvas.renderAll();
-        });
 
         canvas.renderAll();
       }, { crossOrigin: "anonymous" });
@@ -104,26 +88,19 @@ export const useFabric = (
     const image = imageRef.current;
     if (!canvas || !image) return;
 
-    if (activeTool === "pan") {
-      canvas.isDrawingMode = false;
-      image.selectable = true;
-      image.evented = true;
-    } else {
+    if (activeTool === "brush") {
       canvas.isDrawingMode = true;
       image.selectable = false;
       image.evented = false;
 
-      if (activeTool === "erase") {
-        const eraserBrush = new window.fabric.PencilBrush(canvas);
-        eraserBrush.globalCompositeOperation = "destination-out";
-        eraserBrush.width = brushSize;
-        canvas.freeDrawingBrush = eraserBrush;
-      } else if (activeTool === "restore" && patternSourceRef.current) {
-        const restoreBrush = new window.fabric.PatternBrush(canvas);
-        restoreBrush.width = brushSize;
-        restoreBrush.source = patternSourceRef.current as CanvasImageSource;
-        canvas.freeDrawingBrush = restoreBrush;
-      }
+      const brush = new window.fabric.PencilBrush(canvas);
+      brush.width = brushSize;
+      brush.color = "rgba(255, 255, 255, 1)";
+      canvas.freeDrawingBrush = brush;
+    } else if (activeTool === "none") {
+      canvas.isDrawingMode = false;
+      image.selectable = false;
+      image.evented = false;
     }
     canvas.renderAll();
   }, [activeTool, brushSize]);
@@ -131,9 +108,57 @@ export const useFabric = (
   const handleDownload = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
-    const dataURL = canvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
+    
+    // Create a mask image where white brush areas are white and other areas are black
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+    
+    tempCanvas.width = canvas.getWidth();
+    tempCanvas.height = canvas.getHeight();
+    
+    // Fill with black background
+    tempCtx.fillStyle = 'black';
+    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    
+    // Get the fabric canvas content (which includes brush strokes)
+    const fabricCanvasElement = canvas.getElement();
+    tempCtx.drawImage(fabricCanvasElement, 0, 0);
+    
+    // Get the image data to process brush strokes
+    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+    const pixels = imageData.data;
+    
+    // Process each pixel to create the mask
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i];
+      const g = pixels[i + 1];
+      const b = pixels[i + 2];
+      const a = pixels[i + 3];
+      
+      // If this pixel has white brush stroke (white or near white)
+      if (r > 200 && g > 200 && b > 200 && a > 0) {
+        // Make it pure white
+        pixels[i] = 255;     // R
+        pixels[i + 1] = 255; // G
+        pixels[i + 2] = 255; // B
+        pixels[i + 3] = 255; // A
+      } else {
+        // Make it pure black
+        pixels[i] = 0;       // R
+        pixels[i + 1] = 0;   // G
+        pixels[i + 2] = 0;   // B
+        pixels[i + 3] = 255; // A
+      }
+    }
+    
+    // Put the processed image data back
+    tempCtx.putImageData(imageData, 0, 0);
+    
+    // Export the mask image
+    const dataURL = tempCanvas.toDataURL('image/png');
     const link = document.createElement("a");
-    link.download = "edited-image.png";
+    link.download = "mask-image.png";
     link.href = dataURL;
     document.body.appendChild(link);
     link.click();

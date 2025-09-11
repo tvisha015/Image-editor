@@ -1,1 +1,1 @@
-export type Tool = "pan" | "erase" | "restore";
+export type Tool = "none" | "brush";
