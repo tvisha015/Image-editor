@@ -1,4 +1,3 @@
-// app/page.tsx
 "use client"; // This is crucial for pages with client-side interactivity
 
 import { useState } from "react";
@@ -13,21 +12,30 @@ export default function HomePage() {
   const handleImageUpload = async (file: File) => {
     setIsLoading(true);
 
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+    if (!baseUrl) {
+      console.error("API base URL is not defined. Check your .env file.");
+      alert("Configuration error: The API base URL is missing.");
+      setIsLoading(false);
+      return;
+    }
+
+    // Define your dynamic endpoint here
+    const endpoint = "remove-bg-single/";
+    const apiUrl = `${baseUrl}${endpoint}`; // Combine them to get the full URL
+
     try {
       const formData = new FormData();
       formData.append("file", file);
 
-      // Make the API call, expecting a JSON response (removed responseType: 'blob')
-      const response = await axios.post(
-        "https://img-bg-remover.makeitlive.info/remove-bg-single/",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          timeout: 30000, // 30 seconds timeout
-        }
-      );
+      // Use the combined apiUrl in your API call
+      const response = await axios.post(apiUrl, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        timeout: 30000, // 30 seconds timeout
+      });
 
       // Check if the API call was successful and get the URL from the JSON data
       if (
@@ -72,11 +80,9 @@ export default function HomePage() {
   };
 
   return (
-    // <main className="bg-slate-900 min-h-screen w-full flex items-center justify-center p-4 font-sans">
-    //   <UploadView onImageUpload={handleImageUpload} isLoading={isLoading} />
-    // </main>
     <main className="bg-slate-100 min-h-screen w-full flex items-center justify-center p-4 font-sans">
       <UploadView onImageUpload={handleImageUpload} isLoading={isLoading} />
     </main>
   );
 }
+
