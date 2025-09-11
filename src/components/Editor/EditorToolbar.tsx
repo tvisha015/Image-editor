@@ -1,4 +1,6 @@
-// src/components/Editor/EditorToolbar.tsx
+// FILE: src/components/Editor/EditorToolbar.tsx
+// ---------------------------------------------
+
 "use client";
 
 import React, { FC } from "react";
@@ -9,7 +11,7 @@ const EditorToolbar: FC<{
   activeTool: Tool;
   setActiveTool: (tool: Tool) => void;
 }> = ({ activeTool, setActiveTool }) => (
-  <aside className="w-20 bg-slate-900/50 p-4 flex flex-col items-center space-y-4">
+  <aside className="w-20 bg-slate-100 p-4 flex flex-col items-center space-y-4 border-r border-slate-200">
     {/* Toolbar title */}
     <div className="w-12 h-12 bg-purple-600 rounded-xl text-white flex items-center justify-center font-bold text-2xl shrink-0">
       B

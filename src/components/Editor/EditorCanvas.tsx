@@ -1,10 +1,13 @@
-// src/components/Editor/EditorCanvas.tsx
+// FILE: src/components/Editor/EditorCanvas.tsx
+// --------------------------------------------
+
 "use client";
 
 import React, { FC, RefObject, useState, useEffect } from "react";
 import { Tool } from "../../types/editor";
 
-const checkerboardPattern = `data:image/svg+xml,%3Csvg xmlns='http://www.w.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%232d3748'/%3E%3Crect width='8' height='8' fill='%234a5568'/%3E%3Crect x='8' y='8' width='8' height='8' fill='%234a5568'/%3E%3C/svg%3E`;
+// Updated checkerboard pattern for light theme
+const checkerboardPattern = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23ffffff'/%3E%3Crect width='8' height='8' fill='%23e2e8f0'/%3E%3Crect x='8' y='8' width='8' height='8' fill='%23e2e8f0'/%3E%3C/svg%3E`;
 
 const EditorCanvas: FC<{
   canvasRef: RefObject<HTMLCanvasElement>;
@@ -47,49 +50,47 @@ const EditorCanvas: FC<{
   }, []);
 
   return (
-  <div className="flex-1 p-6 flex items-center justify-center bg-slate-900">
-    <div className="relative flex items-center justify-center w-full h-full">
-      {/* Checkerboard background */}
-      <div
-        className="absolute overflow-hidden border border-slate-600"
-        style={{
-          width: `${imageDimensions.width}px`,
-          height: `${imageDimensions.height}px`,
-          backgroundImage: `url("${checkerboardPattern}")`,
-          backgroundRepeat: "repeat",
-          // transform: "scale(1.3)", // <-- This line was removed
-        }}
-      ></div>
-      {/* Canvas container */}
-      <div
-        className="canvas-container"
-        style={{
-          width: `${imageDimensions.width}px`,
-          height: `${imageDimensions.height}px`,
-          position: "absolute",
-          zIndex: 1,
-          // transform: "scale(1.3)", // <-- This line was removed
-        }}
-      >
-        <canvas ref={canvasRef} />
-        
-        {/* Brush size cursor circle */}
-        {activeTool === "brush" && isMouseOverCanvas && brushSize > 0 && (
-          <div
-            className="absolute pointer-events-none border-2 border-white/80 rounded-full transition-all duration-100 ease-out"
-            style={{
-              left: `${mousePosition.x - brushSize / 2}px`,
-              top: `${mousePosition.y - brushSize / 2}px`,
-              width: `${brushSize}px`,
-              height: `${brushSize}px`,
-              zIndex: 10,
-              boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.3)',
-            }}
-          />
-        )}
+    <div className="flex-1 p-6 flex items-center justify-center bg-slate-200">
+      <div className="relative flex items-center justify-center w-full h-full">
+        {/* Checkerboard background */}
+        <div
+          className="absolute overflow-hidden border border-slate-300"
+          style={{
+            width: `${imageDimensions.width}px`,
+            height: `${imageDimensions.height}px`,
+            backgroundImage: `url("${checkerboardPattern}")`,
+            backgroundRepeat: "repeat",
+          }}
+        ></div>
+        {/* Canvas container */}
+        <div
+          className="canvas-container"
+          style={{
+            width: `${imageDimensions.width}px`,
+            height: `${imageDimensions.height}px`,
+            position: "absolute",
+            zIndex: 1,
+          }}
+        >
+          <canvas ref={canvasRef} />
+          
+          {/* Brush size cursor circle */}
+          {activeTool === "brush" && isMouseOverCanvas && brushSize > 0 && (
+            <div
+              className="absolute pointer-events-none border-2 border-slate-900/80 rounded-full transition-all duration-100 ease-out"
+              style={{
+                left: `${mousePosition.x - brushSize / 2}px`,
+                top: `${mousePosition.y - brushSize / 2}px`,
+                width: `${brushSize}px`,
+                height: `${brushSize}px`,
+                zIndex: 10,
+                boxShadow: '0 0 0 2px rgba(0, 0, 0, 0.1)',
+              }}
+            />
+          )}
+        </div>
       </div>
     </div>
-  </div>
   );
 };
 

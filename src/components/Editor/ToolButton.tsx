@@ -1,4 +1,6 @@
-// src/components/Editor/ToolButton.tsx
+// FILE: src/components/Editor/ToolButton.tsx
+// ------------------------------------------
+
 "use client";
 
 import React, { FC } from "react";
@@ -14,8 +16,8 @@ const ToolButton: FC<{
     title={title}
     className={`p-3 rounded-xl transition-colors ${
       isActive
-        ? "bg-purple-500/30 text-purple-400"
-        : "hover:bg-slate-700 text-slate-400"
+        ? "bg-purple-100 text-purple-600"
+        : "hover:bg-slate-200 text-slate-500"
     }`}
   >
     {children}
