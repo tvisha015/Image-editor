@@ -24,7 +24,7 @@ const EditorToolbar: React.FC<{
   return (
     <aside className="w-20 bg-slate-100 p-4 flex flex-col items-center space-y-4 border-r border-slate-200">
       <div className="w-12 h-12 bg-purple-600 rounded-xl text-white flex items-center justify-center font-bold text-2xl shrink-0">
-        B
+        I
       </div>
 
       {/* Cursor Tool */}

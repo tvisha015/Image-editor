@@ -102,20 +102,67 @@ export const useFabric = (
     canvas.renderAll();
   }, [activeTool, brushSize]);
 
-  const generateMaskDataURL = (): string | null => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return null;
-    const paths = canvas.getObjects().filter((obj: any) => obj.type === 'path');
-    if (paths.length === 0) return null;
+  /**
+   * NEW: This function now processes the mask to remove anti-aliasing,
+   * ensuring it only contains pure black and pure white pixels.
+   */
+  const generateHardMaskDataURL = (): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas) {
+        resolve(null);
+        return;
+      }
+      const paths = canvas.getObjects().filter((obj: any) => obj.type === 'path');
+      if (paths.length === 0) {
+        resolve(null);
+        return;
+      }
 
-    const maskCanvas = new window.fabric.StaticCanvas(null, {
-      width: canvas.getWidth(),
-      height: canvas.getHeight(),
-      backgroundColor: 'black',
+      // 1. Create a temporary Fabric canvas to draw the initial mask
+      const softMaskCanvas = new window.fabric.StaticCanvas(null, {
+        width: canvas.getWidth(),
+        height: canvas.getHeight(),
+        backgroundColor: 'black',
+      });
+      paths.forEach((path: any) => softMaskCanvas.add(path));
+      softMaskCanvas.renderAll();
+      const softMaskDataURL = softMaskCanvas.toDataURL({ format: 'png' });
+
+      // 2. Process this mask in a standard HTML canvas to create hard edges
+      const tempImg = new Image();
+      tempImg.crossOrigin = "anonymous";
+      tempImg.onload = () => {
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) {
+          resolve(null);
+          return;
+        }
+        tempCanvas.width = canvas.getWidth();
+        tempCanvas.height = canvas.getHeight();
+        tempCtx.drawImage(tempImg, 0, 0);
+
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const pixels = imageData.data;
+
+        // 3. Apply a threshold: if a pixel isn't pure black, make it pure white
+        for (let i = 0; i < pixels.length; i += 4) {
+          // Check the red channel (pixels[i]). If it's greater than 0, it's not pure black.
+          if (pixels[i] > 0) {
+            pixels[i] = 255;     // R
+            pixels[i + 1] = 255; // G
+            pixels[i + 2] = 255; // B
+            pixels[i + 3] = 255; // A (fully opaque)
+          }
+        }
+        tempCtx.putImageData(imageData, 0, 0);
+
+        // 4. Resolve the promise with the new, hard-edged mask
+        resolve(tempCanvas.toDataURL('image/png'));
+      };
+      tempImg.src = softMaskDataURL;
     });
-    paths.forEach((path: any) => maskCanvas.add(path));
-    maskCanvas.renderAll();
-    return maskCanvas.toDataURL({ format: 'png' });
   };
 
   const handleDownloadImage = () => {
@@ -132,9 +179,12 @@ export const useFabric = (
 
   const handleRemoveObject = async () => {
     const canvas = fabricCanvasRef.current;
-    const maskDataURL = generateMaskDataURL();
+    if (!canvas) return;
 
-    if (!maskDataURL || !canvas) {
+    // Use the new hard mask generation function
+    const maskDataURL = await generateHardMaskDataURL();
+
+    if (!maskDataURL) {
       alert("Please draw on the image to select an area to remove.");
       return;
     }
@@ -152,17 +202,13 @@ export const useFabric = (
       const apiEndpoint = "https://img-bg-remover.makeitlive.info/remove-object/";
       const response = await fetch(apiEndpoint, { method: "POST", body: formData });
 
-      // *** THE FIX: Check the response before trying to parse it ***
       const contentType = response.headers.get("content-type");
-
       if (!response.ok) {
-        // If the server returned an error, try to get a text message from it.
         const errorText = await response.text();
         throw new Error(`Server Error: ${response.status}. Response: ${errorText}`);
       }
 
       if (contentType && contentType.indexOf("application/json") !== -1) {
-        // If it's JSON, process it.
         const result = await response.json();
         if (result.url) {
           const paths = canvas.getObjects().filter((obj: any) => obj.type === 'path');
@@ -173,7 +219,6 @@ export const useFabric = (
           throw new Error("API response did not contain a URL.");
         }
       } else {
-        // If it's not JSON, throw an error.
         throw new Error("Received an invalid response from the server.");
       }
     } catch (error) {
