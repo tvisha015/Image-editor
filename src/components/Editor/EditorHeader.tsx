@@ -1,18 +1,24 @@
-// FILE: src/components/Editor/EditorHeader.tsx
-// --------------------------------------------
-
 "use client";
 
 import React, { FC } from "react";
 import { Tool } from "../../types/editor"; 
 
+// Updated props to accept the new handler functions
 const EditorHeader: FC<{
   brushSize: number;
   setBrushSize: (size: number) => void;
   activeTool: Tool;
   onStartNew: () => void;
-  handleDownload: () => void;
-}> = ({ brushSize, setBrushSize, activeTool, onStartNew, handleDownload }) => (
+  handleDownloadMask: () => void; // New prop for downloading the mask
+  handleRemoveObject: () => void; // New prop for calling the API
+}> = ({ 
+    brushSize, 
+    setBrushSize, 
+    activeTool, 
+    onStartNew, 
+    handleDownloadMask, 
+    handleRemoveObject 
+}) => (
   <header className="flex justify-between items-center p-4 border-b border-slate-200">
     <div className="flex items-center gap-4">
       <h1 className="text-xl font-semibold text-slate-800 mr-4 hidden sm:block">Editor</h1>
@@ -43,8 +49,21 @@ const EditorHeader: FC<{
       <button onClick={onStartNew} className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors">
         Start New
       </button>
-      <button onClick={handleDownload} className="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg shadow-lg hover:bg-purple-700 transition-all transform hover:scale-105">
-        Download
+
+      {/* Button for downloading the mask (for testing) */}
+      <button 
+        onClick={handleDownloadMask} 
+        className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors px-4 py-2 rounded-md bg-slate-200 hover:bg-slate-300"
+      >
+        Test Mask
+      </button>
+      
+      {/* Primary button to call the API and remove the object */}
+      <button 
+        onClick={handleRemoveObject} 
+        className="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg shadow-lg hover:bg-purple-700 transition-all transform hover:scale-105"
+      >
+        Remove Object
       </button>
     </div>
   </header>
