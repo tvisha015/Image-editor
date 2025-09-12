@@ -1,37 +1,53 @@
-// FILE: src/components/Editor/EditorHeader.tsx
-// --------------------------------------------
-
 "use client";
 
-import React, { FC } from "react";
-import { Tool } from "../../types/editor"; 
+import React from "react";
+import { Tool } from "../../types/editor";
 
-const EditorHeader: FC<{
+const EditorHeader: React.FC<{
   brushSize: number;
   setBrushSize: (size: number) => void;
   activeTool: Tool;
   onStartNew: () => void;
-  handleDownload: () => void;
-}> = ({ brushSize, setBrushSize, activeTool, onStartNew, handleDownload }) => (
+  handleRemoveObject: () => void;
+  handleDownloadImage: () => void; // New prop for downloading
+}> = ({
+  brushSize,
+  setBrushSize,
+  activeTool,
+  onStartNew,
+  handleRemoveObject,
+  handleDownloadImage,
+}) => (
   <header className="flex justify-between items-center p-4 border-b border-slate-200">
     <div className="flex items-center gap-4">
-      <h1 className="text-xl font-semibold text-slate-800 mr-4 hidden sm:block">Editor</h1>
+      <h1 className="text-xl font-semibold text-slate-800 mr-4 hidden sm:block">
+        Editor
+      </h1>
       {activeTool === "brush" ? (
         <div className="flex items-center gap-3 text-slate-500">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" />
-          </svg>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={brushSize}
-              onChange={(e) => setBrushSize(Number(e.target.value))}
-              className="w-32 cursor-pointer accent-purple-600"
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"
             />
-          <div className="text-sm text-slate-600">
-            Size: {brushSize}
-          </div>
+          </svg>
+          <input
+            type="range"
+            min="1"
+            max="100"
+            value={brushSize}
+            onChange={(e) => setBrushSize(Number(e.target.value))}
+            className="w-32 cursor-pointer accent-purple-600"
+          />
+          <div className="text-sm text-slate-600">Size: {brushSize}</div>
         </div>
       ) : (
         <div className="text-sm text-slate-400">
@@ -40,10 +56,28 @@ const EditorHeader: FC<{
       )}
     </div>
     <div className="flex items-center gap-4">
-      <button onClick={onStartNew} className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors">
+      <button
+        onClick={onStartNew}
+        className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
+      >
         Start New
       </button>
-      <button onClick={handleDownload} className="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg shadow-lg hover:bg-purple-700 transition-all transform hover:scale-105">
+
+      {/* Conditionally render the "Remove Object" button */}
+      {activeTool === "brush" && (
+        <button
+          onClick={handleRemoveObject}
+          className="bg-teal-500 text-white font-bold py-2 px-6 rounded-lg shadow-lg hover:bg-teal-700 transition-all transform hover:scale-105"
+        >
+          Remove Object
+        </button>
+      )}
+
+      {/* The main Download button */}
+      <button
+        onClick={handleDownloadImage}
+        className="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg shadow-lg hover:bg-purple-700 transition-all transform hover:scale-105"
+      >
         Download
       </button>
     </div>
