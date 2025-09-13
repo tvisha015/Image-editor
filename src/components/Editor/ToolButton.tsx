@@ -10,6 +10,7 @@ const ToolButton: FC<{
   isActive: boolean;
   children: React.ReactNode;
   title: string;
+  disabled?: boolean;
 }> = ({ onClick, isActive, children, title }) => (
   <button
     onClick={onClick}

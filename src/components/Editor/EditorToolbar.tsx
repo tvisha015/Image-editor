@@ -10,10 +10,12 @@ import { Tool } from "../../types/editor";
 const EditorToolbar: React.FC<{
   activeTool: Tool;
   setActiveTool: (tool: Tool) => void;
-}> = ({ activeTool, setActiveTool }) => {
+  isPreviewing: boolean; // Receive isPreviewing state
+}> = ({ activeTool, setActiveTool, isPreviewing }) => {
   
   const handleToolClick = (tool: Tool) => {
-    // If the clicked tool is already active, switch to cursor tool (deselect)
+    if (isPreviewing) return; // Prevent tool change during preview
+
     if (activeTool === tool) {
       setActiveTool("cursor");
     } else {
@@ -27,22 +29,22 @@ const EditorToolbar: React.FC<{
         I
       </div>
 
-      {/* Cursor Tool */}
       <ToolButton 
         title="Cursor" 
         onClick={() => handleToolClick("cursor")} 
         isActive={activeTool === "cursor"}
+        disabled={isPreviewing} // Disable button
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l-2 5L9 9l5-2 2 8z" />
         </svg>
       </ToolButton>
 
-      {/* Brush/Erase Tool */}
       <ToolButton 
         title="Erase Tool" 
         onClick={() => handleToolClick("brush")} 
         isActive={activeTool === "brush"}
+        disabled={isPreviewing} // Disable button
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" />

@@ -1,0 +1,58 @@
+/* components/ImageComparisonSlider.module.css */
+
+.comparisonContainer {
+    position: relative;
+    width: 100%;
+    /* Use aspect-ratio for responsive height */
+    aspect-ratio: 16 / 9;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    overflow: hidden;
+    user-select: none; /* Prevent image selection while dragging */
+}
+
+.afterImageWrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 50%; /* Start in the middle */
+    overflow: hidden; /* This is the magic clipping effect! */
+    border-right: 3px solid white;
+    box-sizing: border-box;
+}
+
+.sliderHandle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    height: 50px;
+    width: 50px;
+    background-color: white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: ew-resize; /* East-West resize cursor */
+    box-shadow: 0 0 10px rgba(0,0,0,0.4);
+    z-index: 40;
+}
+
+/* This is a simpler way to create the arrows using a single element */
+.sliderArrows {
+    width: 12px;
+    height: 12px;
+    border-top: 2px solid #333;
+    border-right: 2px solid #333;
+    transform: rotate(45deg) translateX(-2px);
+}
+.sliderArrows::before {
+    content: '';
+    display: block;
+    width: 12px;
+    height: 12px;
+    border-left: 2px solid #333;
+    border-bottom: 2px solid #333;
+    transform: rotate(180deg) translate(8px, 8px);
+}

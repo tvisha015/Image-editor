@@ -10,56 +10,49 @@ import EditorView from '../../components/EditorView';
 export default function EditorPage() {
     const router = useRouter();
     const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
     const [isScriptLoaded, setIsScriptLoaded] = useState(false);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
     useEffect(() => {
-      const storedImageUrl = sessionStorage.getItem('uploadedImage');
-      const bgRemoved = sessionStorage.getItem('bgRemoved'); 
+        const storedImageUrl = sessionStorage.getItem('uploadedImage');
+        const storedOriginalUrl = sessionStorage.getItem('originalImage');
+        const bgRemoved = sessionStorage.getItem('bgRemoved'); 
 
-      if (storedImageUrl) {
-        setImageUrl(storedImageUrl);
-        if (bgRemoved === 'true') {
-          setShowSuccessMessage(true);
-          setTimeout(() => setShowSuccessMessage(false), 5000);
+        if (storedImageUrl && storedOriginalUrl) {
+            setImageUrl(storedImageUrl);
+            setOriginalImageUrl(storedOriginalUrl);
+            if (bgRemoved === 'true') {
+                setShowSuccessMessage(true);
+                setTimeout(() => setShowSuccessMessage(false), 5000);
+            }
+        } else {
+            router.push('/');
+            return; 
         }
-      } else {
-        router.push('/');
-        return; 
-      }
 
-      const scriptSrc = 'https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js';
-      
-      if (document.querySelector(`script[src="${scriptSrc}"]`)) {
-          if ((window as any).fabric) {
-              setIsScriptLoaded(true);
-          }
-          return;
-      }
+        const scriptSrc = 'https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js';
+        
+        if (document.querySelector(`script[src="${scriptSrc}"]`)) {
+            if ((window as any).fabric) {
+                setIsScriptLoaded(true);
+            }
+            return;
+        }
 
-      const script = document.createElement('script');
-      script.src = scriptSrc;
-      script.async = true;
+        const script = document.createElement('script');
+        script.src = scriptSrc;
+        script.async = true;
+        script.onload = () => setIsScriptLoaded(true);
+        script.onerror = () => console.error("Failed to load the Fabric.js script.");
+        document.body.appendChild(script);
 
-      script.onload = () => {
-        console.log("Fabric.js script has loaded successfully.");
-        setIsScriptLoaded(true);
-      };
-      
-      script.onerror = () => {
-          console.error("Failed to load the Fabric.js script.");
-      }
-
-      document.body.appendChild(script);
-
-      return () => {
-          // Clean-up logic can be minimal to avoid issues in strict mode
-      }
     }, [router]);
 
     const handleStartNew = () => {
         sessionStorage.removeItem('uploadedImage');
         sessionStorage.removeItem('bgRemoved');
+        sessionStorage.removeItem('originalImage');
         router.push('/');
     };
 
@@ -74,13 +67,16 @@ export default function EditorPage() {
                 </div>
             )}
             
-            {imageUrl && isScriptLoaded ? (
-                <EditorView imageUrl={imageUrl} onStartNew={handleStartNew} />
+            {imageUrl && originalImageUrl && isScriptLoaded ? (
+                <EditorView 
+                  initialImageUrl={imageUrl} 
+                  originalImageUrl={originalImageUrl}
+                  onStartNew={handleStartNew} 
+                />
             ) : (
                 <div className="flex flex-col items-center justify-center space-y-4">
                     <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-slate-700 font-medium text-lg">Loading Editor...</p>
-                    <p className="text-slate-500 text-sm">Preparing your image</p>
                 </div>
             )}
         </main>

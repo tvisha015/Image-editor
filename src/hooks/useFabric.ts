@@ -177,11 +177,10 @@ export const useFabric = (
     document.body.removeChild(link);
   };
 
-  const handleRemoveObject = async () => {
+const handleRemoveObject = async () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
-    // Use the new hard mask generation function
     const maskDataURL = await generateHardMaskDataURL();
 
     if (!maskDataURL) {
@@ -199,7 +198,14 @@ export const useFabric = (
       formData.append("background_removed_image", scaledImageFile);
       formData.append("mask_image", maskImageFile);
 
-      const apiEndpoint = "https://img-bg-remover.makeitlive.info/remove-object/";
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+      if (!baseUrl) {
+        const errorMsg = "Configuration error: API base URL is not defined. Check your .env.local file.";
+        alert(errorMsg);
+        console.error(errorMsg);
+        return; 
+      }
+      const apiEndpoint = `${baseUrl}remove-object/`;
       const response = await fetch(apiEndpoint, { method: "POST", body: formData });
 
       const contentType = response.headers.get("content-type");
