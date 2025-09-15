@@ -12,24 +12,31 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-@keyframes fadeInOut {
-  0% { opacity: 0; transform: translateY(-10px); }
-  10% { opacity: 1; transform: translateY(0); }
-  90% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-10px); }
-}
+@layer utilities {
+  @keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(-10px); }
+    10% { opacity: 1; transform: translateY(0); }
+    90% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-10px); }
+  }
 
-.animate-fade-in-out {
-  animation: fadeInOut 5s ease-in-out forwards;
-}
+  .animate-fade-in-out {
+    animation: fadeInOut 5s ease-in-out forwards;
+  }
 
-@keyframes fadeInOut {
-  0% { opacity: 0; transform: translateY(-10px); }
-  10% { opacity: 1; transform: translateY(0); }
-  90% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-10px); }
-}
+  /* New animation for the background panel */
+  @keyframes slide-in {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
 
-.animate-fade-in-out {
-  animation: fadeInOut 5s ease-in-out forwards;
+  .animate-slide-in {
+    animation: slide-in 0.3s ease-out forwards;
+  }
 }

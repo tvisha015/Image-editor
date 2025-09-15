@@ -6,10 +6,11 @@ import { Tool } from "../types/editor";
 import EditorToolbar from "./Editor/EditorToolbar";
 import EditorHeader from "./Editor/EditorHeader";
 import EditorCanvas from "./Editor/EditorCanvas";
+import BackgroundColorPanel from "./Editor/BackgroundColorPanel";
 
 interface EditorViewProps {
   initialImageUrl: string;
-  originalImageUrl: string; // The untouched original image
+  originalImageUrl: string;
   onStartNew: () => void;
 }
 
@@ -19,6 +20,16 @@ const EditorView: FC<EditorViewProps> = ({ initialImageUrl, originalImageUrl, on
     const [brushSize, setBrushSize] = useState(30);
     const [isPreviewing, setIsPreviewing] = useState(false);
     const [hasBeenEdited, setHasBeenEdited] = useState(false);
+    const [isBgPanelOpen, setIsBgPanelOpen] = useState(false);
+    const [backgroundColor, setBackgroundColor] = useState('transparent');
+
+    // **CHANGE 2: Add useEffect to close the panel when erase tool is selected**
+    useEffect(() => {
+      if (activeTool === 'brush' && isBgPanelOpen) {
+        setIsBgPanelOpen(false);
+      }
+    }, [activeTool, isBgPanelOpen]);
+
 
     useEffect(() => {
         if (sessionStorage.getItem('bgRemoved') === 'true') {
@@ -31,12 +42,23 @@ const EditorView: FC<EditorViewProps> = ({ initialImageUrl, originalImageUrl, on
         setActiveTool("cursor"); 
         setHasBeenEdited(true);
     };
+    
+    // **CHANGE 1: Update the panel toggle handler to deselect the erase tool**
+    const handleToggleBgPanel = () => {
+      const newPanelState = !isBgPanelOpen;
+      setIsBgPanelOpen(newPanelState);
+      // If we are opening the panel, ensure the erase tool is deactivated
+      if (newPanelState) {
+        setActiveTool("cursor");
+      }
+    };
 
     const { canvasRef, imageDimensions, handleRemoveObject, handleDownloadImage } = useFabric(
         currentImageUrl, 
         activeTool, 
         brushSize,
-        handleComplete
+        handleComplete,
+        backgroundColor
     );
     
     return (
@@ -45,29 +67,39 @@ const EditorView: FC<EditorViewProps> = ({ initialImageUrl, originalImageUrl, on
                 activeTool={activeTool} 
                 setActiveTool={setActiveTool}
                 isPreviewing={isPreviewing}
+                isBgPanelOpen={isBgPanelOpen}
+                onToggleBgPanel={handleToggleBgPanel} // Use the new handler
             />
-            <main className="flex-1 flex flex-col">
-                <EditorHeader
-                    brushSize={brushSize}
-                    setBrushSize={setBrushSize}
-                    activeTool={activeTool}
-                    onStartNew={onStartNew}
-                    handleRemoveObject={handleRemoveObject}
-                    handleDownloadImage={handleDownloadImage}
-                    hasBeenEdited={hasBeenEdited}
-                    isPreviewing={isPreviewing}
-                    onTogglePreview={() => setIsPreviewing(!isPreviewing)}
-                />
-                <EditorCanvas
-                    canvasRef={canvasRef as React.RefObject<HTMLCanvasElement>}
-                    imageDimensions={imageDimensions}
-                    activeTool={activeTool}
-                    brushSize={brushSize}
-                    isPreviewing={isPreviewing}
-                    originalImageUrl={originalImageUrl}
-                    afterImageUrl={currentImageUrl}
-                />
-            </main>
+            <div className="flex-1 flex relative">
+                <main className="flex-1 flex flex-col">
+                    <EditorHeader
+                        brushSize={brushSize}
+                        setBrushSize={setBrushSize}
+                        activeTool={activeTool}
+                        onStartNew={onStartNew}
+                        handleRemoveObject={handleRemoveObject}
+                        handleDownloadImage={handleDownloadImage}
+                        hasBeenEdited={hasBeenEdited}
+                        isPreviewing={isPreviewing}
+                        onTogglePreview={() => setIsPreviewing(!isPreviewing)}
+                    />
+                    <EditorCanvas
+                        canvasRef={canvasRef as React.RefObject<HTMLCanvasElement>}
+                        imageDimensions={imageDimensions}
+                        activeTool={activeTool}
+                        brushSize={brushSize}
+                        isPreviewing={isPreviewing}
+                        originalImageUrl={originalImageUrl}
+                    />
+                </main>
+                
+                {isBgPanelOpen && (
+                  <BackgroundColorPanel
+                    onColorChange={setBackgroundColor}
+                    onClose={() => setIsBgPanelOpen(false)}
+                  />
+                )}
+            </div>
         </div>
     );
 };

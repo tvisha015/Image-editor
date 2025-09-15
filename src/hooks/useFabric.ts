@@ -25,7 +25,8 @@ export const useFabric = (
   imageUrl: string,
   activeTool: Tool,
   brushSize: number,
-  onComplete: (url: string) => void
+  onComplete: (url: string) => void,
+  backgroundColor: string // <-- ADD THIS
 ) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<any | null>(null);
@@ -86,6 +87,14 @@ export const useFabric = (
     };
   }, [imageUrl, updateCanvasImage]);
 
+  // NEW: This effect applies background color changes to the canvas
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (canvas) {
+      canvas.setBackgroundColor(backgroundColor, canvas.renderAll.bind(canvas));
+    }
+  }, [backgroundColor]);
+
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -102,10 +111,6 @@ export const useFabric = (
     canvas.renderAll();
   }, [activeTool, brushSize]);
 
-  /**
-   * NEW: This function now processes the mask to remove anti-aliasing,
-   * ensuring it only contains pure black and pure white pixels.
-   */
   const generateHardMaskDataURL = (): Promise<string | null> => {
     return new Promise((resolve) => {
       const canvas = fabricCanvasRef.current;
@@ -119,7 +124,6 @@ export const useFabric = (
         return;
       }
 
-      // 1. Create a temporary Fabric canvas to draw the initial mask
       const softMaskCanvas = new window.fabric.StaticCanvas(null, {
         width: canvas.getWidth(),
         height: canvas.getHeight(),
@@ -129,7 +133,6 @@ export const useFabric = (
       softMaskCanvas.renderAll();
       const softMaskDataURL = softMaskCanvas.toDataURL({ format: 'png' });
 
-      // 2. Process this mask in a standard HTML canvas to create hard edges
       const tempImg = new Image();
       tempImg.crossOrigin = "anonymous";
       tempImg.onload = () => {
@@ -146,19 +149,16 @@ export const useFabric = (
         const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
         const pixels = imageData.data;
 
-        // 3. Apply a threshold: if a pixel isn't pure black, make it pure white
         for (let i = 0; i < pixels.length; i += 4) {
-          // Check the red channel (pixels[i]). If it's greater than 0, it's not pure black.
           if (pixels[i] > 0) {
-            pixels[i] = 255;     // R
-            pixels[i + 1] = 255; // G
-            pixels[i + 2] = 255; // B
-            pixels[i + 3] = 255; // A (fully opaque)
+            pixels[i] = 255;
+            pixels[i + 1] = 255;
+            pixels[i + 2] = 255;
+            pixels[i + 3] = 255;
           }
         }
         tempCtx.putImageData(imageData, 0, 0);
 
-        // 4. Resolve the promise with the new, hard-edged mask
         resolve(tempCanvas.toDataURL('image/png'));
       };
       tempImg.src = softMaskDataURL;
@@ -177,7 +177,7 @@ export const useFabric = (
     document.body.removeChild(link);
   };
 
-const handleRemoveObject = async () => {
+  const handleRemoveObject = async () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 

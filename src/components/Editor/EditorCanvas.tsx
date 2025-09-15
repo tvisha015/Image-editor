@@ -8,36 +8,46 @@ const checkerboardPattern = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 // --- UPDATED Preview Slider Component ---
 interface PreviewSliderProps {
   originalImageUrl: string;
-  afterImageUrl: string;
   width: number;
   height: number;
 }
 
-const PreviewSlider: FC<PreviewSliderProps> = ({ originalImageUrl, afterImageUrl, width, height }) => {
+const PreviewSlider: FC<PreviewSliderProps> = ({ originalImageUrl, width, height }) => {
   const [sliderPosition, setSliderPosition] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
   const handleMove = useCallback((clientX: number) => {
-    if (!isDragging.current || !containerRef.current) return;
-
-    const rect = containerRef.current.getBoundingClientRect();
-    let x = clientX - rect.left;
-    let percentage = (x / rect.width) * 100;
+    if (!containerRef.current) return;
     
-    if (percentage < 0) percentage = 0;
-    if (percentage > 100) percentage = 100;
-    
-    setSliderPosition(percentage);
+    // Only move if dragging is active
+    if (isDragging.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      let x = clientX - rect.left;
+      let percentage = (x / rect.width) * 100;
+      
+      if (percentage < 0) percentage = 0;
+      if (percentage > 100) percentage = 100;
+      
+      setSliderPosition(percentage);
+    }
   }, []);
 
-  // This function now handles both clicking to move and starting a drag
   const handleInteractionStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     isDragging.current = true;
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    handleMove(clientX); // Immediately move slider to the click/touch point
-  }, [handleMove]);
+
+    // This logic allows clicking anywhere to move the slider
+    if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        let x = clientX - rect.left;
+        let percentage = (x / rect.width) * 100;
+        if (percentage < 0) percentage = 0;
+        if (percentage > 100) percentage = 100;
+        setSliderPosition(percentage);
+    }
+  }, []);
 
   const handleInteractionEnd = useCallback(() => {
     isDragging.current = false;
@@ -60,12 +70,11 @@ const PreviewSlider: FC<PreviewSliderProps> = ({ originalImageUrl, afterImageUrl
     };
   }, [handleMove, handleInteractionEnd]);
 
-
   return (
     <div
       ref={containerRef}
-      onMouseDown={handleInteractionStart} // **CHANGE 3: Attach mouse down to the container**
-      onTouchStart={handleInteractionStart} // **CHANGE 3: Attach touch start to the container**
+      onMouseDown={handleInteractionStart}
+      onTouchStart={handleInteractionStart}
       style={{
         position: 'absolute',
         width: `${width}px`,
@@ -73,14 +82,11 @@ const PreviewSlider: FC<PreviewSliderProps> = ({ originalImageUrl, afterImageUrl
         zIndex: 10,
         userSelect: 'none',
         overflow: 'hidden',
-        cursor: 'pointer', // **CHANGE 2: Set "hand" cursor for the whole area**
-        backgroundImage: `url("${checkerboardPattern}")`,
-        backgroundRepeat: "repeat",
-        boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+        cursor: 'pointer',
         borderRadius: '8px',
       }}
     >
-      {/* Original Image (Left side) */}
+      {/* Original "Before" Image (Left side) - This is the only image in the slider now */}
       <img
         src={originalImageUrl}
         alt="Original"
@@ -89,22 +95,8 @@ const PreviewSlider: FC<PreviewSliderProps> = ({ originalImageUrl, afterImageUrl
           position: 'absolute',
           width: '100%', height: '100%',
           objectFit: 'contain',
-          clipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
+          clipPath: `inset(0 ${100 - sliderPosition}% 0 0)`, // Show left part only
           zIndex: 1,
-        }}
-      />
-
-      {/* Edited Image (Right side) */}
-      <img
-        src={afterImageUrl}
-        alt="Edited"
-        draggable="false"
-        style={{
-          position: 'absolute',
-          width: '100%', height: '100%',
-          objectFit: 'contain',
-          clipPath: `inset(0 0 0 ${sliderPosition}%)`,
-          zIndex: 2,
         }}
       />
       
@@ -136,7 +128,7 @@ const PreviewSlider: FC<PreviewSliderProps> = ({ originalImageUrl, afterImageUrl
             borderRadius: '50%',
             backgroundColor: '#fff',
             boxShadow: '0 0 12px rgba(0, 0, 0, 0.6)',
-            cursor: 'ew-resize', // **CHANGE 1: Set resize cursor on the handle**
+            cursor: 'ew-resize',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -155,7 +147,7 @@ const PreviewSlider: FC<PreviewSliderProps> = ({ originalImageUrl, afterImageUrl
   );
 };
 
-// --- Main EditorCanvas Component (No changes here) ---
+// --- Main EditorCanvas Component ---
 const EditorCanvas: FC<{
   canvasRef: RefObject<HTMLCanvasElement>;
   imageDimensions: { width: number; height: number };
@@ -163,7 +155,6 @@ const EditorCanvas: FC<{
   brushSize: number;
   isPreviewing: boolean;
   originalImageUrl: string;
-  afterImageUrl: string;
 }> = ({
   canvasRef,
   imageDimensions,
@@ -171,7 +162,6 @@ const EditorCanvas: FC<{
   brushSize,
   isPreviewing,
   originalImageUrl,
-  afterImageUrl,
 }) => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isMouseOverCanvas, setIsMouseOverCanvas] = useState(false);
@@ -181,7 +171,6 @@ const EditorCanvas: FC<{
         setIsMouseOverCanvas(false);
         return;
     }
-
     const canvasContainer = document.querySelector('.canvas-container');
     const handleMouseMove = (e: MouseEvent) => {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -189,11 +178,9 @@ const EditorCanvas: FC<{
     };
     const handleMouseEnter = () => setIsMouseOverCanvas(true);
     const handleMouseLeave = () => setIsMouseOverCanvas(false);
-    
     canvasContainer?.addEventListener('mousemove', handleMouseMove as EventListener);
     canvasContainer?.addEventListener('mouseenter', handleMouseEnter);
     canvasContainer?.addEventListener('mouseleave', handleMouseLeave);
-
     return () => {
       canvasContainer?.removeEventListener('mousemove', handleMouseMove as EventListener);
       canvasContainer?.removeEventListener('mouseenter', handleMouseEnter);
@@ -201,20 +188,10 @@ const EditorCanvas: FC<{
     };
   }, [isPreviewing]);
 
-
   return (
     <div className="flex-1 p-6 flex items-center justify-center bg-slate-200">
       <div className="relative flex items-center justify-center w-full h-full">
-        <div
-          className="absolute overflow-hidden border border-slate-300"
-          style={{
-            width: `${imageDimensions.width}px`,
-            height: `${imageDimensions.height}px`,
-            backgroundImage: `url("${checkerboardPattern}")`,
-            backgroundRepeat: "repeat",
-            visibility: isPreviewing ? 'hidden' : 'visible',
-          }}
-        ></div>
+        {/* The underlying Fabric.js canvas and its background */}
         <div
           className="canvas-container"
           style={{
@@ -223,10 +200,19 @@ const EditorCanvas: FC<{
             position: "absolute",
             zIndex: 1,
             cursor: activeTool === 'brush' ? 'none' : 'default',
-            visibility: isPreviewing ? 'hidden' : 'visible',
-            pointerEvents: isPreviewing ? 'none' : 'auto',
+            // **CHANGE**: Canvas is now always visible but not interactive during preview
+            pointerEvents: isPreviewing ? 'none' : 'auto', 
           }}
         >
+          <div
+            className="absolute top-0 left-0"
+            style={{
+              width: `${imageDimensions.width}px`,
+              height: `${imageDimensions.height}px`,
+              backgroundImage: `url("${checkerboardPattern}")`,
+              backgroundRepeat: "repeat",
+            }}
+          ></div>
           <canvas ref={canvasRef} />
           {activeTool === "brush" && isMouseOverCanvas && brushSize > 0 && (
             <div
@@ -240,10 +226,11 @@ const EditorCanvas: FC<{
             />
           )}
         </div>
-        {isPreviewing && imageDimensions.width > 0 && originalImageUrl && afterImageUrl && (
+
+        {/* The Preview Slider Overlay */}
+        {isPreviewing && imageDimensions.width > 0 && originalImageUrl && (
           <PreviewSlider
             originalImageUrl={originalImageUrl}
-            afterImageUrl={afterImageUrl}
             width={imageDimensions.width}
             height={imageDimensions.height}
           />
