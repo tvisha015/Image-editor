@@ -1,4 +1,4 @@
-"use client"; // This is crucial for pages with client-side interactivity
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -45,12 +45,17 @@ export default function HomePage() {
       ) {
         const imageUrl = response.data.url;
 
-        // Save the processed image URL from the API directly to sessionStorage
-        sessionStorage.setItem("uploadedImage", imageUrl);
-        sessionStorage.setItem("bgRemoved", "true");
+        // Save both the original and the edited URL
+        const reader = new FileReader();
+        reader.onload = (event: ProgressEvent<FileReader>) => {
+            const originalDataUrl = event.target?.result as string;
+            sessionStorage.setItem("originalImage", originalDataUrl); // The untouched original
+            sessionStorage.setItem("uploadedImage", imageUrl); // The background-removed version
+            sessionStorage.setItem("bgRemoved", "true");
+            router.push("/editor");
+        };
+        reader.readAsDataURL(file); // Convert original file to Data URL
 
-        // Navigate to the editor page
-        router.push("/editor");
       } else {
         // Handle cases where the API might not return a URL
         throw new Error(
@@ -65,6 +70,8 @@ export default function HomePage() {
       fallbackReader.onload = (event: ProgressEvent<FileReader>) => {
         const imageUrl = event.target?.result as string;
         if (imageUrl) {
+          // On fallback, original and uploaded are the same
+          sessionStorage.setItem("originalImage", imageUrl);
           sessionStorage.setItem("uploadedImage", imageUrl);
           alert(
             "Background removal service is currently unavailable. Loading original image in editor."
@@ -85,4 +92,3 @@ export default function HomePage() {
     </main>
   );
 }
-
