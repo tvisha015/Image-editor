@@ -13,6 +13,7 @@ const EditorHeader: React.FC<{
   hasBeenEdited: boolean;
   isPreviewing: boolean;
   onTogglePreview: () => void;
+  isBgPanelOpen: boolean;
 }> = ({
   brushSize,
   setBrushSize,
@@ -23,6 +24,7 @@ const EditorHeader: React.FC<{
   hasBeenEdited,
   isPreviewing,
   onTogglePreview,
+  isBgPanelOpen,
 }) => (
   <header className="flex justify-between items-center p-4 border-b border-slate-200">
     <div className="flex items-center gap-4">
@@ -47,7 +49,11 @@ const EditorHeader: React.FC<{
         </div>
       ) : (
         <div className="text-sm text-slate-400">
-          {isPreviewing ? "Previewing changes" : "Select a tool to start editing"}
+          {isBgPanelOpen 
+            ? "Select a background color" 
+            : isPreviewing 
+            ? "Previewing changes" 
+            : "Select a tool to start editing"}
         </div>
       )}
     </div>
@@ -69,6 +75,7 @@ const EditorHeader: React.FC<{
         </button>
       )}
 
+      {/* This button was missing from your file but is needed for the remove object feature */}
       {activeTool === "brush" && (
         <button
           onClick={handleRemoveObject}

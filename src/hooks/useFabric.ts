@@ -26,7 +26,7 @@ export const useFabric = (
   activeTool: Tool,
   brushSize: number,
   onComplete: (url: string) => void,
-  backgroundColor: string // <-- ADD THIS
+  backgroundColor: string
 ) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<any | null>(null);
@@ -34,11 +34,11 @@ export const useFabric = (
 
   const updateCanvasImage = useCallback((url: string) => {
     const canvas = fabricCanvasRef.current;
-    if (!canvas || !window.fabric) return;
+    if (!canvas || !window.fabric || !url) return;
+
+    canvas.clear();
 
     window.fabric.Image.fromURL(url, (img: any) => {
-      canvas.clear(); 
-
       const padding = 15;
       const scale = Math.min(
         (800 - padding) / (img.width || 1),
@@ -52,6 +52,8 @@ export const useFabric = (
 
       canvas.setWidth(scaledWidth);
       canvas.setHeight(scaledHeight);
+      
+      canvas.setBackgroundColor(backgroundColor, canvas.renderAll.bind(canvas));
 
       img.set({
         selectable: false,
@@ -65,16 +67,15 @@ export const useFabric = (
       
       canvas.renderAll();
     }, { crossOrigin: 'anonymous' });
-  }, []);
+  }, [backgroundColor]);
 
   useEffect(() => {
     if (!canvasRef.current || !window.fabric) return;
 
     const canvas = new window.fabric.Canvas(canvasRef.current, {
-      backgroundColor: 'transparent'
+      backgroundColor: backgroundColor,
     });
     fabricCanvasRef.current = canvas;
-    updateCanvasImage(imageUrl);
 
     return () => {
       const canvasInstance = fabricCanvasRef.current;
@@ -85,9 +86,13 @@ export const useFabric = (
       }
       fabricCanvasRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    updateCanvasImage(imageUrl);
   }, [imageUrl, updateCanvasImage]);
 
-  // NEW: This effect applies background color changes to the canvas
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
     if (canvas) {
@@ -177,7 +182,7 @@ export const useFabric = (
     document.body.removeChild(link);
   };
 
-  const handleRemoveObject = async () => {
+   const handleRemoveObject = async () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
@@ -188,50 +193,58 @@ export const useFabric = (
       return;
     }
 
-    const scaledImageDataURL = canvas.toDataURL({ format: 'png', without: ['path'] });
+    // 1. Store the original background color
+    const originalBackgroundColor = canvas.backgroundColor;
 
-    try {
-      const scaledImageFile = dataURLtoFile(scaledImageDataURL, "background_removed_image.png");
-      const maskImageFile = dataURLtoFile(maskDataURL, "mask_image.png");
+    // 2. Set background to transparent to export a clean image
+    canvas.setBackgroundColor('transparent', () => {
+      canvas.renderAll();
 
-      const formData = new FormData();
-      formData.append("background_removed_image", scaledImageFile);
-      formData.append("mask_image", maskImageFile);
+      // 3. Export the image with a transparent background
+      const scaledImageDataURL = canvas.toDataURL({ format: 'png', without: ['path'] });
 
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-      if (!baseUrl) {
-        const errorMsg = "Configuration error: API base URL is not defined. Check your .env.local file.";
-        alert(errorMsg);
-        console.error(errorMsg);
-        return; 
-      }
-      const apiEndpoint = `${baseUrl}remove-object/`;
-      const response = await fetch(apiEndpoint, { method: "POST", body: formData });
+      // 4. Immediately restore the original background color in the UI
+      canvas.setBackgroundColor(originalBackgroundColor, canvas.renderAll.bind(canvas));
 
-      const contentType = response.headers.get("content-type");
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Server Error: ${response.status}. Response: ${errorText}`);
-      }
+      // 5. Proceed with the API call using the transparent image
+      (async () => {
+        try {
+          const scaledImageFile = dataURLtoFile(scaledImageDataURL, "background_removed_image.png");
+          const maskImageFile = dataURLtoFile(maskDataURL, "mask_image.png");
 
-      if (contentType && contentType.indexOf("application/json") !== -1) {
-        const result = await response.json();
-        if (result.url) {
-          const paths = canvas.getObjects().filter((obj: any) => obj.type === 'path');
-          paths.forEach((path: any) => canvas.remove(path));
-          canvas.renderAll();
-          onComplete(result.url);
-        } else {
-          throw new Error("API response did not contain a URL.");
+          const formData = new FormData();
+          formData.append("background_removed_image", scaledImageFile);
+          formData.append("mask_image", maskImageFile);
+
+          const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+          if (!baseUrl) {
+            throw new Error("Configuration error: API base URL is not defined.");
+          }
+          const apiEndpoint = `${baseUrl}remove-object/`;
+          const response = await fetch(apiEndpoint, { method: "POST", body: formData });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server Error: ${response.status}. Response: ${errorText}`);
+          }
+
+          const result = await response.json();
+          if (result.url) {
+            const paths = canvas.getObjects().filter((obj: any) => obj.type === 'path');
+            paths.forEach((path: any) => canvas.remove(path));
+            canvas.renderAll();
+            onComplete(result.url);
+          } else {
+            throw new Error("API response did not contain a URL.");
+          }
+        } catch (error) {
+          console.error("Failed to remove object:", error);
+          alert(`An error occurred: ${error instanceof Error ? error.message : String(error)}`);
+          // Restore background on error as well
+          canvas.setBackgroundColor(originalBackgroundColor, canvas.renderAll.bind(canvas));
         }
-      } else {
-        throw new Error("Received an invalid response from the server.");
-      }
-    } catch (error) {
-      console.error("Failed to remove object:", error);
-      alert(`An error occurred: ${error instanceof Error ? error.message : String(error)}`);
-    }
+      })();
+    });
   };
-
   return { canvasRef, imageDimensions, handleRemoveObject, handleDownloadImage };
 };

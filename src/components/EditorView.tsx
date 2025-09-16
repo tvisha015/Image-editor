@@ -82,6 +82,7 @@ const EditorView: FC<EditorViewProps> = ({ initialImageUrl, originalImageUrl, on
                         hasBeenEdited={hasBeenEdited}
                         isPreviewing={isPreviewing}
                         onTogglePreview={() => setIsPreviewing(!isPreviewing)}
+                        isBgPanelOpen={isBgPanelOpen}
                     />
                     <EditorCanvas
                         canvasRef={canvasRef as React.RefObject<HTMLCanvasElement>}
