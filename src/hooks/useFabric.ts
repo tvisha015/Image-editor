@@ -1,7 +1,9 @@
+// src/hooks/useFabric.ts
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { Tool } from "../types/editor";
+import { staticBackgrounds } from "@/libs/background";
 
 declare global {
   interface Window {
@@ -26,7 +28,9 @@ export const useFabric = (
   activeTool: Tool,
   brushSize: number,
   onComplete: (url: string) => void,
-  backgroundColor: string
+  backgroundColor: string,
+  backgroundImage: string,
+  onBgImageLoaded: () => void
 ) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<any | null>(null);
@@ -115,6 +119,27 @@ export const useFabric = (
     }
     canvas.renderAll();
   }, [activeTool, brushSize]);
+
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    if (backgroundImage) {
+        window.fabric.Image.fromURL(backgroundImage, (img: any) => {
+            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                // Scale the image to cover the entire canvas
+                scaleX: canvas.width / (img.width || 1),
+                scaleY: canvas.height / (img.height || 1),
+                originX: 'left',
+                originY: 'top'
+            });
+            onBgImageLoaded();
+        }, { crossOrigin: 'anonymous' });
+    } else {
+        // Clear the background image if the URL is empty
+        canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+    }
+  }, [backgroundImage, onBgImageLoaded]);
 
   const generateHardMaskDataURL = (): Promise<string | null> => {
     return new Promise((resolve) => {

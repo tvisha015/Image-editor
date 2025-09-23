@@ -1,3 +1,4 @@
+// src/components/Editor/EditorHeader.tsx
 "use client";
 
 import React from "react";

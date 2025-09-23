@@ -97,7 +97,7 @@ const UploadView: FC<{
                 <p className="text-slate-700 font-medium text-lg">
                   Removing background...
                 </p>
-                <p className="text-slate-500 text-sm">
+                <p className="text-slate-500 text-sm"> 
                   This may take a few moments
                 </p>
               </div>

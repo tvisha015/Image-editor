@@ -1,3 +1,4 @@
+// src/components/Editor/EditorCanvas.tsx
 "use client";
 
 import React, { FC, RefObject, useState, useEffect, useRef, useCallback } from "react";
