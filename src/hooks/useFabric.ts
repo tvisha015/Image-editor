@@ -3,8 +3,6 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { Tool } from "../types/editor";
-import { staticBackgrounds } from "@/libs/background";
-import { clear } from "console";
 
 declare global {
   interface Window {
@@ -65,8 +63,8 @@ export const useFabric = (
         canvas.setWidth(scaledWidth);
         canvas.setHeight(scaledHeight);
         img.set({
-          selectable: false,
-          evented: false,
+          selectable: activeTool === 'cursor',
+          evented: activeTool === 'cursor',
           crossOrigin: "anonymous",
         });
 
@@ -78,7 +76,7 @@ export const useFabric = (
       },
       { crossOrigin: "anonymous" }
     );
-  }, []);
+  }, [activeTool]);
 
   useEffect(() => {
     if (!canvasRef.current || !window.fabric) return;
@@ -294,6 +292,7 @@ export const useFabric = (
     }
     // })();
   };
+
   const clearDrawings = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -301,6 +300,7 @@ export const useFabric = (
     paths.forEach((path: any) => canvas.remove(path));
     canvas.renderAll();
   }, []);
+
   return {
     canvasRef,
     imageDimensions,
