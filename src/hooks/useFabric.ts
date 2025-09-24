@@ -4,6 +4,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { Tool } from "../types/editor";
 import { staticBackgrounds } from "@/libs/background";
+import { clear } from "console";
 
 declare global {
   interface Window {
@@ -12,7 +13,7 @@ declare global {
 }
 
 const dataURLtoFile = (dataurl: string, filename: string): File => {
-  const arr = dataurl.split(',');
+  const arr = dataurl.split(",");
   const mimeMatch = arr[0].match(/:(.*?);/);
   if (!mimeMatch) throw new Error("Invalid Data URL");
   const mime = mimeMatch[1];
@@ -34,63 +35,58 @@ export const useFabric = (
 ) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<any | null>(null);
-  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+  const imageRef = useRef<any | null>(null); // Ref to store the main image object
+  const [imageDimensions, setImageDimensions] = useState({
+    width: 0,
+    height: 0,
+  });
 
   const updateCanvasImage = useCallback((url: string) => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || !window.fabric || !url) return;
-
     canvas.clear();
+    imageRef.current = null; // Clear previous image ref
 
-    window.fabric.Image.fromURL(url, (img: any) => {
-      const padding = 15;
-      const scale = Math.min(
-        (800 - padding) / (img.width || 1),
-        (600 - padding) / (img.height || 1)
-      ) * 0.5;
+    window.fabric.Image.fromURL(
+      url,
+      (img: any) => {
+        const padding = 15;
+        const scale =
+          Math.min(
+            (800 - padding) / (img.width || 1),
+            (600 - padding) / (img.height || 1)
+          ) * 0.5;
 
-      img.scale(scale);
-      const scaledWidth = Math.round((img.width || 0) * scale);
-      const scaledHeight = Math.round((img.height || 0) * scale);
-      setImageDimensions({ width: scaledWidth, height: scaledHeight });
+        img.scale(scale);
+        const scaledWidth = Math.round((img.width || 0) * scale);
+        const scaledHeight = Math.round((img.height || 0) * scale);
+        setImageDimensions({ width: scaledWidth, height: scaledHeight });
 
-      canvas.setWidth(scaledWidth);
-      canvas.setHeight(scaledHeight);
-      
-      canvas.setBackgroundColor(backgroundColor, canvas.renderAll.bind(canvas));
+        canvas.setWidth(scaledWidth);
+        canvas.setHeight(scaledHeight);
+        img.set({
+          selectable: false,
+          evented: false,
+          crossOrigin: "anonymous",
+        });
 
-      img.set({
-        selectable: false,
-        evented: false,
-        crossOrigin: 'anonymous'
-      });
+        imageRef.current = img; // Store the new image object in our ref
 
-      canvas.add(img);
-      canvas.centerObject(img);
-      canvas.sendToBack(img);
-      
-      canvas.renderAll();
-    }, { crossOrigin: 'anonymous' });
-  }, [backgroundColor]);
+        canvas.add(img);
+        canvas.centerObject(img);
+        canvas.renderAll();
+      },
+      { crossOrigin: "anonymous" }
+    );
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current || !window.fabric) return;
-
-    const canvas = new window.fabric.Canvas(canvasRef.current, {
-      backgroundColor: backgroundColor,
-    });
+    const canvas = new window.fabric.Canvas(canvasRef.current);
     fabricCanvasRef.current = canvas;
-
     return () => {
-      const canvasInstance = fabricCanvasRef.current;
-      if (canvasInstance && typeof canvasInstance.dispose === 'function') {
-        if (canvasInstance.wrapperEl && canvasInstance.wrapperEl.parentNode) {
-          canvasInstance.dispose();
-        }
-      }
-      fabricCanvasRef.current = null;
+      fabricCanvasRef.current?.dispose();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -125,19 +121,23 @@ export const useFabric = (
     if (!canvas) return;
 
     if (backgroundImage) {
-        window.fabric.Image.fromURL(backgroundImage, (img: any) => {
-            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-                // Scale the image to cover the entire canvas
-                scaleX: canvas.width / (img.width || 1),
-                scaleY: canvas.height / (img.height || 1),
-                originX: 'left',
-                originY: 'top'
-            });
-            onBgImageLoaded();
-        }, { crossOrigin: 'anonymous' });
+      window.fabric.Image.fromURL(
+        backgroundImage,
+        (img: any) => {
+          canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+            // Scale the image to cover the entire canvas
+            scaleX: canvas.width / (img.width || 1),
+            scaleY: canvas.height / (img.height || 1),
+            originX: "left",
+            originY: "top",
+          });
+          onBgImageLoaded();
+        },
+        { crossOrigin: "anonymous" }
+      );
     } else {
-        // Clear the background image if the URL is empty
-        canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+      // Clear the background image if the URL is empty
+      canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
     }
   }, [backgroundImage, onBgImageLoaded]);
 
@@ -148,7 +148,9 @@ export const useFabric = (
         resolve(null);
         return;
       }
-      const paths = canvas.getObjects().filter((obj: any) => obj.type === 'path');
+      const paths = canvas
+        .getObjects()
+        .filter((obj: any) => obj.type === "path");
       if (paths.length === 0) {
         resolve(null);
         return;
@@ -157,17 +159,17 @@ export const useFabric = (
       const softMaskCanvas = new window.fabric.StaticCanvas(null, {
         width: canvas.getWidth(),
         height: canvas.getHeight(),
-        backgroundColor: 'black',
+        backgroundColor: "black",
       });
       paths.forEach((path: any) => softMaskCanvas.add(path));
       softMaskCanvas.renderAll();
-      const softMaskDataURL = softMaskCanvas.toDataURL({ format: 'png' });
+      const softMaskDataURL = softMaskCanvas.toDataURL({ format: "png" });
 
       const tempImg = new Image();
       tempImg.crossOrigin = "anonymous";
       tempImg.onload = () => {
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
         if (!tempCtx) {
           resolve(null);
           return;
@@ -176,7 +178,12 @@ export const useFabric = (
         tempCanvas.height = canvas.getHeight();
         tempCtx.drawImage(tempImg, 0, 0);
 
-        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const imageData = tempCtx.getImageData(
+          0,
+          0,
+          tempCanvas.width,
+          tempCanvas.height
+        );
         const pixels = imageData.data;
 
         for (let i = 0; i < pixels.length; i += 4) {
@@ -189,7 +196,7 @@ export const useFabric = (
         }
         tempCtx.putImageData(imageData, 0, 0);
 
-        resolve(tempCanvas.toDataURL('image/png'));
+        resolve(tempCanvas.toDataURL("image/png"));
       };
       tempImg.src = softMaskDataURL;
     });
@@ -198,7 +205,7 @@ export const useFabric = (
   const handleDownloadImage = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
-    const dataURL = canvas.toDataURL({ format: 'png' });
+    const dataURL = canvas.toDataURL({ format: "png" });
     const link = document.createElement("a");
     link.download = "edited-image.png";
     link.href = dataURL;
@@ -207,9 +214,14 @@ export const useFabric = (
     document.body.removeChild(link);
   };
 
-   const handleRemoveObject = async () => {
+  const handleRemoveObject = async () => {
     const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
+    const imageObject = imageRef.current; // Use the reference
+
+    if (!canvas || !imageObject) {
+      alert("Image not found on canvas. Please wait for it to load fully.");
+      return;
+    }
 
     const maskDataURL = await generateHardMaskDataURL();
 
@@ -218,58 +230,82 @@ export const useFabric = (
       return;
     }
 
-    // 1. Store the original background color
-    const originalBackgroundColor = canvas.backgroundColor;
+    // // 1. Store the original background color
+    // const originalBackgroundColor = canvas.backgroundColor;
 
-    // 2. Set background to transparent to export a clean image
-    canvas.setBackgroundColor('transparent', () => {
-      canvas.renderAll();
+    // // 2. Set background to transparent to export a clean image
+    // canvas.setBackgroundColor('transparent', () => {
+    //   canvas.renderAll();
 
-      // 3. Export the image with a transparent background
-      const scaledImageDataURL = canvas.toDataURL({ format: 'png', without: ['path'] });
+    //   // 3. Export the image with a transparent background
+    //   const scaledImageDataURL = canvas.toDataURL({ format: 'png', without: ['path'] });
 
-      // 4. Immediately restore the original background color in the UI
-      canvas.setBackgroundColor(originalBackgroundColor, canvas.renderAll.bind(canvas));
+    //   // 4. Immediately restore the original background color in the UI
+    //   canvas.setBackgroundColor(originalBackgroundColor, canvas.renderAll.bind(canvas));
 
-      // 5. Proceed with the API call using the transparent image
-      (async () => {
-        try {
-          const scaledImageFile = dataURLtoFile(scaledImageDataURL, "background_removed_image.png");
-          const maskImageFile = dataURLtoFile(maskDataURL, "mask_image.png");
+    // 5. Proceed with the API call using the transparent image
 
-          const formData = new FormData();
-          formData.append("background_removed_image", scaledImageFile);
-          formData.append("mask_image", maskImageFile);
+    const imageDataURL = imageObject.toDataURL({ format: "png" });
 
-          const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-          if (!baseUrl) {
-            throw new Error("Configuration error: API base URL is not defined.");
-          }
-          const apiEndpoint = `${baseUrl}remove-object/`;
-          const response = await fetch(apiEndpoint, { method: "POST", body: formData });
+    // (async () => {
+    try {
+      const imageFile = dataURLtoFile(imageDataURL, "image.png");
+      const maskImageFile = dataURLtoFile(maskDataURL, "mask_image.png");
+      const formData = new FormData();
+      formData.append("background_removed_image", imageFile);
+      formData.append("mask_image", maskImageFile);
 
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Server Error: ${response.status}. Response: ${errorText}`);
-          }
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+      if (!baseUrl) {
+        throw new Error("Configuration error: API base URL is not defined.");
+      }
+      const apiEndpoint = `${baseUrl}remove-object/`;
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        body: formData,
+      });
 
-          const result = await response.json();
-          if (result.url) {
-            const paths = canvas.getObjects().filter((obj: any) => obj.type === 'path');
-            paths.forEach((path: any) => canvas.remove(path));
-            canvas.renderAll();
-            onComplete(result.url);
-          } else {
-            throw new Error("API response did not contain a URL.");
-          }
-        } catch (error) {
-          console.error("Failed to remove object:", error);
-          alert(`An error occurred: ${error instanceof Error ? error.message : String(error)}`);
-          // Restore background on error as well
-          canvas.setBackgroundColor(originalBackgroundColor, canvas.renderAll.bind(canvas));
-        }
-      })();
-    });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Server Error: ${response.status}. Response: ${errorText}`
+        );
+      }
+
+      const result = await response.json();
+
+      if (result.url) {
+        const paths = canvas
+          .getObjects()
+          .filter((obj: any) => obj.type === "path");
+        paths.forEach((path: any) => canvas.remove(path));
+        canvas.renderAll();
+        onComplete(result.url);
+      } else {
+        throw new Error("API response did not contain a URL.");
+      }
+    } catch (error) {
+      console.error("Failed to remove object:", error);
+      alert(
+        `An error occurred: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+    // })();
   };
-  return { canvasRef, imageDimensions, handleRemoveObject, handleDownloadImage };
+  const clearDrawings = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const paths = canvas.getObjects().filter((obj: any) => obj.type === "path");
+    paths.forEach((path: any) => canvas.remove(path));
+    canvas.renderAll();
+  }, []);
+  return {
+    canvasRef,
+    imageDimensions,
+    handleRemoveObject,
+    handleDownloadImage,
+    clearDrawings,
+  };
 };

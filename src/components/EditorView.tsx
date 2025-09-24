@@ -60,11 +60,13 @@ const EditorView: FC<EditorViewProps> = ({
   };
 
   const handleBackgroundColorChange = (color: string) => {
+    clearDrawings();
     setBackgroundColor(color);
     setBackgroundImage(""); // Clear image if a color is selected
   };
 
   const handleBackgroundImageChange = (imageUrl: string) => {
+    clearDrawings();
     setIsBgLoading(true);
     setBackgroundImage(imageUrl);
     setBackgroundColor("transparent"); // Set color to transparent when an image is used
@@ -79,6 +81,7 @@ const EditorView: FC<EditorViewProps> = ({
     imageDimensions,
     handleRemoveObject,
     handleDownloadImage,
+    clearDrawings,
   } = useFabric(
     currentImageUrl,
     activeTool,
@@ -86,7 +89,7 @@ const EditorView: FC<EditorViewProps> = ({
     handleComplete,
     backgroundColor,
     backgroundImage,
-    handleBgImageLoaded 
+    () => setIsBgLoading(false)
   );
 
   return (
