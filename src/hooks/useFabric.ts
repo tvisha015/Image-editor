@@ -29,11 +29,14 @@ export const useFabric = (
   onComplete: (url: string) => void,
   backgroundColor: string,
   backgroundImage: string,
-  onBgImageLoaded: () => void
+  onBgImageLoaded: () => void,
+  isBgPanelOpen: boolean
 ) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<any | null>(null);
   const imageRef = useRef<any | null>(null); // Ref to store the main image object
+  const isPanning = useRef(false);
+  const lastPosition = useRef({ x: 0, y: 0 });
   const [imageDimensions, setImageDimensions] = useState({
     width: 0,
     height: 0,
@@ -139,6 +142,60 @@ export const useFabric = (
     }
   }, [backgroundImage, onBgImageLoaded]);
 
+ useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const maxZoom = 3;
+    const zoomStep = 1;
+
+    // --- Zoom Event Handlers ---
+    const handleMouseWheel = (opt: any) => {
+      // MODIFIED: Require Ctrl key for both brush and cursor tools
+      if ((activeTool === 'brush' || activeTool === 'cursor') && !opt.e.ctrlKey) {
+        return; 
+      }
+      
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
+
+      const delta = opt.e.deltaY;
+      let zoom = canvas.getZoom();
+      zoom *= 0.999 ** delta;
+      if (zoom > maxZoom) zoom = maxZoom;
+      if (zoom < 1) zoom = 1;
+
+      canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+    };
+
+    const handleMouseClick = (opt: any) => {
+      let currentZoom = canvas.getZoom();
+      currentZoom += zoomStep;
+      if (currentZoom > maxZoom) {
+        currentZoom = 1;
+      }
+      canvas.zoomToPoint({ x: opt.pointer.x, y: opt.pointer.y }, currentZoom);
+    };
+
+    if (activeTool === 'brush' || activeTool === 'cursor' ) {
+      canvas.on('mouse:wheel', handleMouseWheel);
+    }
+    // if (isBgPanelOpen) {
+    //   canvas.on('mouse:up', handleMouseClick);
+    //   canvas.defaultCursor = 'zoom-in';
+    //   canvas.setCursor('zoom-in');
+    // }
+
+    // Cleanup function
+    return () => {
+      canvas.off('mouse:wheel', handleMouseWheel);
+      canvas.off('mouse:up', handleMouseClick);
+      if (isBgPanelOpen) {
+        canvas.defaultCursor = 'default';
+        canvas.setCursor('default');
+      }
+    };
+  }, [activeTool, isBgPanelOpen]);
   const generateHardMaskDataURL = (): Promise<string | null> => {
     return new Promise((resolve) => {
       const canvas = fabricCanvasRef.current;

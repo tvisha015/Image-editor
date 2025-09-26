@@ -89,7 +89,8 @@ const EditorView: FC<EditorViewProps> = ({
     handleComplete,
     backgroundColor,
     backgroundImage,
-    () => setIsBgLoading(false)
+    () => setIsBgLoading(false),
+    isBgPanelOpen 
   );
 
   return (
