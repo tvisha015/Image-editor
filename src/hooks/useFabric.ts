@@ -37,6 +37,7 @@ export const useFabric = (
   const imageRef = useRef<any | null>(null); // Ref to store the main image object
   const isPanning = useRef(false);
   const lastPosition = useRef({ x: 0, y: 0 });
+  const bgImageCache = useRef<Map<string, any>>(new Map());
   const [imageDimensions, setImageDimensions] = useState({
     width: 0,
     height: 0,
@@ -117,31 +118,67 @@ export const useFabric = (
     canvas.renderAll();
   }, [activeTool, brushSize]);
 
+  // useEffect(() => {
+  //   const canvas = fabricCanvasRef.current;
+  //   if (!canvas) return;
+
+  //   if (backgroundImage) {
+  //     window.fabric.Image.fromURL(
+  //       backgroundImage,
+  //       (img: any) => {
+  //         canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+  //           // Scale the image to cover the entire canvas
+  //           scaleX: canvas.width / (img.width || 1),
+  //           scaleY: canvas.height / (img.height || 1),
+  //           originX: "left",
+  //           originY: "top",
+  //         });
+  //         onBgImageLoaded();
+  //       },
+  //       { crossOrigin: "anonymous" }
+  //     );
+  //   } else {
+  //     // Clear the background image if the URL is empty
+  //     canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+  //   }
+  // }, [backgroundImage, onBgImageLoaded]);
+
   useEffect(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
 
-    if (backgroundImage) {
-      window.fabric.Image.fromURL(
-        backgroundImage,
-        (img: any) => {
-          canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-            // Scale the image to cover the entire canvas
-            scaleX: canvas.width / (img.width || 1),
-            scaleY: canvas.height / (img.height || 1),
-            originX: "left",
-            originY: "top",
-          });
-          onBgImageLoaded();
-        },
-        { crossOrigin: "anonymous" }
-      );
-    } else {
-      // Clear the background image if the URL is empty
-      canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
-    }
-  }, [backgroundImage, onBgImageLoaded]);
+    const setBackgroundImage = (img: any) => {
+        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+            scaleX: canvas.width / (img.width || 1),
+            scaleY: canvas.height / (img.height || 1),
+            originX: "left",
+            originY: "top",
+        });
+        onBgImageLoaded();
+    };
 
+    if (backgroundImage) {
+      // 1. Check if the image is already in our cache
+      if (bgImageCache.current.has(backgroundImage)) {
+        const cachedImg = bgImageCache.current.get(backgroundImage);
+        setBackgroundImage(cachedImg); // Use cached image instantly
+        return;
+      }
+
+      // 2. If not cached, load it from the URL
+      window.fabric.Image.fromURL(
+        backgroundImage,
+        (img: any) => {
+          // 3. Save the newly loaded image to the cache
+          bgImageCache.current.set(backgroundImage, img);
+          setBackgroundImage(img);
+        },
+        { crossOrigin: "anonymous" }
+      );
+    } else {
+      canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+    }
+  }, [backgroundImage, onBgImageLoaded]);
  useEffect(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;

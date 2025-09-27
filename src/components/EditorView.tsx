@@ -1,7 +1,7 @@
 // src/components/EditorView.tsx
 "use client";
 
-import React, { useState, FC, useEffect } from "react";
+import React, { useState, FC, useEffect, useCallback } from "react";
 import { useFabric } from "../hooks/useFabric";
 import { Tool } from "../types/editor";
 import EditorToolbar from "./Editor/EditorToolbar";
@@ -43,11 +43,11 @@ const EditorView: FC<EditorViewProps> = ({
     }
   }, []);
 
-  const handleComplete = (newUrl: string) => {
-    setCurrentImageUrl(newUrl);
-    setActiveTool("cursor");
-    setHasBeenEdited(true);
-  };
+  const handleComplete = useCallback((newUrl: string) => {
+    setCurrentImageUrl(newUrl);
+    setActiveTool("cursor");
+    setHasBeenEdited(true);
+  }, []);
 
   // **CHANGE 1: Update the panel toggle handler to deselect the erase tool**
   const handleToggleBgPanel = () => {

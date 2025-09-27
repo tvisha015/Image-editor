@@ -51,7 +51,7 @@ const EditorHeader: React.FC<{
       ) : (
         <div className="text-sm text-slate-400">
           {isBgPanelOpen 
-            ? "Select a background color" 
+            ? "Select a background color/image" 
             : isPreviewing 
             ? "Previewing changes" 
             : "Select a tool to start editing"}
