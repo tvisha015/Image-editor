@@ -27,8 +27,6 @@ const EditorView: FC<EditorViewProps> = ({
   const [hasBeenEdited, setHasBeenEdited] = useState(false);
   const [isBgPanelOpen, setIsBgPanelOpen] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState("transparent");
-  const [backgroundImage, setBackgroundImage] = useState("");
-  const [isBgLoading, setIsBgLoading] = useState(false);
 
   // **CHANGE 2: Add useEffect to close the panel when erase tool is selected**
   useEffect(() => {
@@ -61,19 +59,8 @@ const EditorView: FC<EditorViewProps> = ({
 
   const handleBackgroundColorChange = (color: string) => {
     clearDrawings();
+    clearBackgroundImage(); // Clear any background image when selecting a color
     setBackgroundColor(color);
-    setBackgroundImage(""); // Clear image if a color is selected
-  };
-
-  const handleBackgroundImageChange = (imageUrl: string) => {
-    clearDrawings();
-    setIsBgLoading(true);
-    setBackgroundImage(imageUrl);
-    setBackgroundColor("transparent"); // Set color to transparent when an image is used
-  };
-
-  const handleBgImageLoaded = () => {
-    setIsBgLoading(false);
   };
 
   const {
@@ -82,16 +69,36 @@ const EditorView: FC<EditorViewProps> = ({
     handleRemoveObject,
     handleDownloadImage,
     clearDrawings,
+    handleBackgroundImageUpload,
+    clearBackgroundImage,
+    setBackgroundImageFromUrl,
   } = useFabric(
     currentImageUrl,
     activeTool,
     brushSize,
     handleComplete,
     backgroundColor,
-    backgroundImage,
-    () => setIsBgLoading(false),
+    () => {}, // Placeholder for onBgImageUpload parameter
     isBgPanelOpen 
   );
+
+  const handleBackgroundImageUploadWrapper = (file: File) => {
+    clearDrawings();
+    setBackgroundColor("transparent"); // Set background to transparent when uploading an image
+    handleBackgroundImageUpload(file);
+  };
+
+  const handleStaticImageSelect = (imageUrl: string) => {
+    clearDrawings();
+    setBackgroundColor("transparent"); // Set background to transparent when selecting an image
+    setBackgroundImageFromUrl(imageUrl);
+  };
+
+  const handleRemoveBackground = () => {
+    clearDrawings();
+    clearBackgroundImage();
+    setBackgroundColor("transparent");
+  };
 
   return (
     <div className="w-full max-w-screen-2xl h-[90vh] bg-white rounded-2xl shadow-xl flex overflow-hidden border border-slate-200">
@@ -129,9 +136,10 @@ const EditorView: FC<EditorViewProps> = ({
         {isBgPanelOpen && (
           <BackgroundColorPanel
             onColorChange={handleBackgroundColorChange}
-            onImageChange={handleBackgroundImageChange}
+            onImageUpload={handleBackgroundImageUploadWrapper}
+            onStaticImageSelect={handleStaticImageSelect}
+            onRemoveBackground={handleRemoveBackground}
             onClose={() => setIsBgPanelOpen(false)}
-            isBgLoading={isBgLoading}
           />
         )}
       </div>

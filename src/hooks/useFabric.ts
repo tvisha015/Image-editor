@@ -28,8 +28,7 @@ export const useFabric = (
   brushSize: number,
   onComplete: (url: string) => void,
   backgroundColor: string,
-  backgroundImage: string,
-  onBgImageLoaded: () => void,
+  onBgImageUpload: (file: File) => void,
   isBgPanelOpen: boolean
 ) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,7 +36,6 @@ export const useFabric = (
   const imageRef = useRef<any | null>(null); // Ref to store the main image object
   const isPanning = useRef(false);
   const lastPosition = useRef({ x: 0, y: 0 });
-  const bgImageCache = useRef<Map<string, any>>(new Map());
   const [imageDimensions, setImageDimensions] = useState({
     width: 0,
     height: 0,
@@ -118,67 +116,117 @@ export const useFabric = (
     canvas.renderAll();
   }, [activeTool, brushSize]);
 
-  // useEffect(() => {
-  //   const canvas = fabricCanvasRef.current;
-  //   if (!canvas) return;
+  // Fast background image upload handler - processes uploaded files instantly
+  // Uses FileReader to convert to dataURL and applies directly to canvas
+  const handleBackgroundImageUpload = useCallback((file: File) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !window.fabric) return;
 
-  //   if (backgroundImage) {
-  //     window.fabric.Image.fromURL(
-  //       backgroundImage,
-  //       (img: any) => {
-  //         canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-  //           // Scale the image to cover the entire canvas
-  //           scaleX: canvas.width / (img.width || 1),
-  //           scaleY: canvas.height / (img.height || 1),
-  //           originX: "left",
-  //           originY: "top",
-  //         });
-  //         onBgImageLoaded();
-  //       },
-  //       { crossOrigin: "anonymous" }
-  //     );
-  //   } else {
-  //     // Clear the background image if the URL is empty
-  //     canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
-  //   }
-  // }, [backgroundImage, onBgImageLoaded]);
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      if (!dataUrl) return;
 
-  useEffect(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-
-    const setBackgroundImage = (img: any) => {
-        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-            scaleX: canvas.width / (img.width || 1),
-            scaleY: canvas.height / (img.height || 1),
-            originX: "left",
-            originY: "top",
-        });
-        onBgImageLoaded();
+      // Preload the image to ensure smooth loading
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      
+      img.onload = () => {
+        // Create fabric image from the loaded image
+        const fabricImg = new window.fabric.Image(img);
+        
+        // Scale image to cover the entire canvas (like background-size: cover)
+        const canvasWidth = canvas.getWidth();
+        const canvasHeight = canvas.getHeight();
+        const scaleX = canvasWidth / (fabricImg.width || 1);
+        const scaleY = canvasHeight / (fabricImg.height || 1);
+        const scale = Math.max(scaleX, scaleY); // Cover the entire canvas
+        
+        console.log('Setting uploaded background image:', {
+          fileName: file.name,
+          canvasWidth,
+          canvasHeight,
+          imageWidth: fabricImg.width,
+          imageHeight: fabricImg.height,
+          scaleX,
+          scaleY,
+          finalScale: scale
+        });
+        
+        // Set the background image with proper scaling and positioning
+        canvas.setBackgroundImage(fabricImg, canvas.renderAll.bind(canvas), {
+          scaleX: scale,
+          scaleY: scale,
+          originX: "left",
+          originY: "top",
+          left: 0,
+          top: 0,
+        });
+        
+        // Force a re-render to ensure the background is visible
+        canvas.renderAll();
+      };
+      
+      img.onerror = (error) => {
+        console.error('Failed to load uploaded image:', error);
+      };
+      
+      // Start loading the image
+      img.src = dataUrl;
     };
+    
+    reader.onerror = (error) => {
+      console.error('Failed to read file:', error);
+    };
+    
+    reader.readAsDataURL(file);
+  }, []);
 
-    if (backgroundImage) {
-      // 1. Check if the image is already in our cache
-      if (bgImageCache.current.has(backgroundImage)) {
-        const cachedImg = bgImageCache.current.get(backgroundImage);
-        setBackgroundImage(cachedImg); // Use cached image instantly
-        return;
-      }
+  // Function to clear background image
+  const clearBackgroundImage = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    
+    canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+  }, []);
 
-      // 2. If not cached, load it from the URL
-      window.fabric.Image.fromURL(
-        backgroundImage,
-        (img: any) => {
-          // 3. Save the newly loaded image to the cache
-          bgImageCache.current.set(backgroundImage, img);
-          setBackgroundImage(img);
-        },
-        { crossOrigin: "anonymous" }
-      );
-    } else {
-      canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
-    }
-  }, [backgroundImage, onBgImageLoaded]);
+  // Function to set background image from URL (for static images)
+  const setBackgroundImageFromUrl = useCallback((imageUrl: string) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !window.fabric) return;
+
+    // Use requestAnimationFrame for smoother rendering
+    requestAnimationFrame(() => {
+      // Create fabric image from URL directly (it should be cached by now)
+      window.fabric.Image.fromURL(imageUrl, (img: any) => {
+        // Scale image to cover the entire canvas (like background-size: cover)
+        const canvasWidth = canvas.getWidth();
+        const canvasHeight = canvas.getHeight();
+        const scaleX = canvasWidth / (img.width || 1);
+        const scaleY = canvasHeight / (img.height || 1);
+        const scale = Math.max(scaleX, scaleY); // Cover the entire canvas
+        
+        // Set the background image with proper scaling and positioning
+        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+          scaleX: scale,
+          scaleY: scale,
+          originX: "left",
+          originY: "top",
+          left: 0,
+          top: 0,
+        });
+        
+        // Force a re-render to ensure the background is visible
+        canvas.renderAll();
+      }, { 
+        crossOrigin: "anonymous",
+        // Skip caching since we're handling it in the component
+        noCache: false
+      });
+    });
+  }, []);
+
  useEffect(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -401,5 +449,8 @@ export const useFabric = (
     handleRemoveObject,
     handleDownloadImage,
     clearDrawings,
+    handleBackgroundImageUpload,
+    clearBackgroundImage,
+    setBackgroundImageFromUrl,
   };
 };
