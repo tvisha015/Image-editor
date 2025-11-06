@@ -1,13 +1,13 @@
-// src/components/EditorView.tsx
+// src/components/Editor/index.tsx
 "use client";
 
 import React, { useState, FC, useEffect, useCallback } from "react";
-import { useFabric } from "../hooks/useFabric";
-import { Tool } from "../types/editor";
-import EditorToolbar from "./Editor/EditorToolbar";
-import EditorHeader from "./Editor/EditorHeader";
-import EditorCanvas from "./Editor/EditorCanvas";
-import BackgroundColorPanel from "./Editor/BackgroundColorPanel";
+import { useFabric } from "../../hooks/useFabric";
+import { Tool } from "../../types/editor";
+import EditorToolbar from "./EditorToolbar";
+import EditorHeader from "./EditorHeader";
+import EditorCanvas from "./EditorCanvas";
+import BackgroundColorPanel from "./BackgroundColorPanel";
 
 interface EditorViewProps {
   initialImageUrl: string;

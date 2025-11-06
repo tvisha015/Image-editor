@@ -1,4 +1,4 @@
-// src/app/components/UploadView.tsx
+// src/components/Upload/UploadView.tsx
 "use client";
 
 import React, { useState, FC } from "react";

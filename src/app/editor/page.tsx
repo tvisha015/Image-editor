@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import EditorView from '../../components/EditorView';
+import EditorView from '../../components/Editor';
 
 export default function EditorPage() {
     const router = useRouter();

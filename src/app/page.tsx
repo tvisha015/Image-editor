@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import UploadView from "@/components/UploadView";
+import UploadView from "@/components/Upload/UploadView";
 import axios from "axios";
 
 export default function HomePage() {
@@ -35,7 +35,7 @@ export default function HomePage() {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-        timeout: 30000, // 30 seconds timeout
+        timeout: 50000,
       });
 
       // Check if the API call was successful and get the URL from the JSON data
