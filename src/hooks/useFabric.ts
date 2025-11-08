@@ -1,26 +1,15 @@
 // src/hooks/useFabric.ts
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, RefObject } from "react";
 import { Tool } from "../types/editor";
 
-declare global {
-  interface Window {
-    fabric: any;
-  }
-}
+import { initFabricCanvas, updateMainImage } from "@/libs/fabric/canvasSetup";
+import { clearCanvasDrawings, useFabricBrush } from "@/libs/fabric/drawingActions";
+import { useFabricZoom } from "@/libs/fabric/interactionEffects";
+import { clearCanvasBgImage, setCanvasBgImageFromUrl, setCanvasColor, uploadCanvasBgImage } from "@/libs/fabric/backgroundActions";
+import { exportCanvasImage, removeObjectApiCall } from "@/libs/fabric/apiActions";
 
-const dataURLtoFile = (dataurl: string, filename: string): File => {
-  const arr = dataurl.split(",");
-  const mimeMatch = arr[0].match(/:(.*?);/);
-  if (!mimeMatch) throw new Error("Invalid Data URL");
-  const mime = mimeMatch[1];
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) u8arr[n] = bstr.charCodeAt(n);
-  return new File([u8arr], filename, { type: mime });
-};
 
 export const useFabric = (
   imageUrl: string,
@@ -28,426 +17,77 @@ export const useFabric = (
   brushSize: number,
   onComplete: (url: string) => void,
   backgroundColor: string,
-  onBgImageUpload: (file: File) => void,
+  onBgImageUpload: (file: File) => void, // This prop is unused in the new structure
   isBgPanelOpen: boolean
 ) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<any | null>(null);
-  const imageRef = useRef<any | null>(null); // Ref to store the main image object
-  const isPanning = useRef(false);
-  const lastPosition = useRef({ x: 0, y: 0 });
+  const imageRef = useRef<any | null>(null);
   const [imageDimensions, setImageDimensions] = useState({
     width: 0,
     height: 0,
   });
 
-  const updateCanvasImage = useCallback((url: string) => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas || !window.fabric || !url) return;
-    canvas.clear();
-    imageRef.current = null; // Clear previous image ref
-
-    window.fabric.Image.fromURL(
-      url,
-      (img: any) => {
-        const padding = 15;
-        const scale =
-          Math.min(
-            (800 - padding) / (img.width || 1),
-            (600 - padding) / (img.height || 1)
-          ) * 0.5;
-
-        img.scale(scale);
-        const scaledWidth = Math.round((img.width || 0) * scale);
-        const scaledHeight = Math.round((img.height || 0) * scale);
-        setImageDimensions({ width: scaledWidth, height: scaledHeight });
-
-        canvas.setWidth(scaledWidth);
-        canvas.setHeight(scaledHeight);
-        img.set({
-          selectable: activeTool === 'cursor',
-          evented: activeTool === 'cursor',
-          crossOrigin: "anonymous",
-        });
-
-        imageRef.current = img; // Store the new image object in our ref
-
-        canvas.add(img);
-        canvas.centerObject(img);
-        canvas.renderAll();
-      },
-      { crossOrigin: "anonymous" }
-    );
-  }, [activeTool]);
-
+  // 1. Initialize Canvas
   useEffect(() => {
-    if (!canvasRef.current || !window.fabric) return;
-    const canvas = new window.fabric.Canvas(canvasRef.current);
+    const canvas = initFabricCanvas(canvasRef);
     fabricCanvasRef.current = canvas;
     return () => {
       fabricCanvasRef.current?.dispose();
     };
   }, []);
 
+  // 2. Load Main Image
   useEffect(() => {
-    updateCanvasImage(imageUrl);
-  }, [imageUrl, updateCanvasImage]);
+    updateMainImage(
+      fabricCanvasRef.current,
+      imageRef as RefObject<any>,
+      imageUrl,
+      activeTool,
+      setImageDimensions
+    );
+  }, [imageUrl, activeTool]); // Run when image or tool (for selectability) changes
 
+  // 3. Setup Brush Effect
+  useFabricBrush(fabricCanvasRef, activeTool, brushSize);
+
+  // 4. Setup Zoom Effect
+  useFabricZoom(fabricCanvasRef, activeTool, isBgPanelOpen);
+
+  // 5. Wrap Actions in useCallback
   const setBackgroundColor = useCallback((color: string) => {
-    const canvas = fabricCanvasRef.current;
-    if (canvas) {
-      canvas.setBackgroundColor(color, canvas.renderAll.bind(canvas));
-    }
+    setCanvasColor(fabricCanvasRef.current, color);
   }, []);
 
-  useEffect(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-
-    if (activeTool === "brush") {
-      canvas.isDrawingMode = true;
-      const brush = new window.fabric.PencilBrush(canvas);
-      brush.width = brushSize;
-      brush.color = "rgba(255, 255, 255, 1)";
-      canvas.freeDrawingBrush = brush;
-    } else {
-      canvas.isDrawingMode = false;
-    }
-    canvas.renderAll();
-  }, [activeTool, brushSize]);
-
-  // Fast background image upload handler - processes uploaded files instantly
-  // Uses FileReader to convert to dataURL and applies directly to canvas
   const handleBackgroundImageUpload = useCallback((file: File) => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas || !window.fabric) return;
-
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      if (!dataUrl) return;
-
-      // Preload the image to ensure smooth loading
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      
-      img.onload = () => {
-        // Create fabric image from the loaded image
-        const fabricImg = new window.fabric.Image(img);
-        
-        // Scale image to cover the entire canvas (like background-size: cover)
-        const canvasWidth = canvas.getWidth();
-        const canvasHeight = canvas.getHeight();
-        const scaleX = canvasWidth / (fabricImg.width || 1);
-        const scaleY = canvasHeight / (fabricImg.height || 1);
-        const scale = Math.max(scaleX, scaleY); // Cover the entire canvas
-        
-        console.log('Setting uploaded background image:', {
-          fileName: file.name,
-          canvasWidth,
-          canvasHeight,
-          imageWidth: fabricImg.width,
-          imageHeight: fabricImg.height,
-          scaleX,
-          scaleY,
-          finalScale: scale
-        });
-        
-        // Set the background image with proper scaling and positioning
-        canvas.setBackgroundImage(fabricImg, canvas.renderAll.bind(canvas), {
-          scaleX: scale,
-          scaleY: scale,
-          originX: "left",
-          originY: "top",
-          left: 0,
-          top: 0,
-        });
-        
-        // Force a re-render to ensure the background is visible
-        canvas.renderAll();
-      };
-      
-      img.onerror = (error) => {
-        console.error('Failed to load uploaded image:', error);
-      };
-      
-      // Start loading the image
-      img.src = dataUrl;
-    };
-    
-    reader.onerror = (error) => {
-      console.error('Failed to read file:', error);
-    };
-    
-    reader.readAsDataURL(file);
+    uploadCanvasBgImage(fabricCanvasRef.current, file);
   }, []);
 
-  // Function to clear background image
   const clearBackgroundImage = useCallback(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    
-    canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+    clearCanvasBgImage(fabricCanvasRef.current);
   }, []);
 
-  // Function to set background image from URL (for static images)
   const setBackgroundImageFromUrl = useCallback((imageUrl: string) => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas || !window.fabric) return;
-
-    // Use requestAnimationFrame for smoother rendering
-    requestAnimationFrame(() => {
-      // Create fabric image from URL directly (it should be cached by now)
-      window.fabric.Image.fromURL(imageUrl, (img: any) => {
-        // Scale image to cover the entire canvas (like background-size: cover)
-        const canvasWidth = canvas.getWidth();
-        const canvasHeight = canvas.getHeight();
-        const scaleX = canvasWidth / (img.width || 1);
-        const scaleY = canvasHeight / (img.height || 1);
-        const scale = Math.max(scaleX, scaleY); // Cover the entire canvas
-        
-        // Set the background image with proper scaling and positioning
-        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-          scaleX: scale,
-          scaleY: scale,
-          originX: "left",
-          originY: "top",
-          left: 0,
-          top: 0,
-        });
-        
-        // Force a re-render to ensure the background is visible
-        canvas.renderAll();
-      }, { 
-        crossOrigin: "anonymous",
-        // Skip caching since we're handling it in the component
-        noCache: false
-      });
-    });
+    setCanvasBgImageFromUrl(fabricCanvasRef.current, imageUrl);
   }, []);
 
- useEffect(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
+  const handleDownloadImage = useCallback(() => {
+    exportCanvasImage(fabricCanvasRef.current);
+  }, []);
 
-    const maxZoom = 3;
-    const zoomStep = 1;
-
-    // --- Zoom Event Handlers ---
-    const handleMouseWheel = (opt: any) => {
-      // MODIFIED: Require Ctrl key for both brush and cursor tools
-      if ((activeTool === 'brush' || activeTool === 'cursor') && !opt.e.ctrlKey) {
-        return; 
-      }
-      
-      opt.e.preventDefault();
-      opt.e.stopPropagation();
-
-      const delta = opt.e.deltaY;
-      let zoom = canvas.getZoom();
-      zoom *= 0.999 ** delta;
-      if (zoom > maxZoom) zoom = maxZoom;
-      if (zoom < 1) zoom = 1;
-
-      canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
-    };
-
-    const handleMouseClick = (opt: any) => {
-      let currentZoom = canvas.getZoom();
-      currentZoom += zoomStep;
-      if (currentZoom > maxZoom) {
-        currentZoom = 1;
-      }
-      canvas.zoomToPoint({ x: opt.pointer.x, y: opt.pointer.y }, currentZoom);
-    };
-
-    if (activeTool === 'brush' || activeTool === 'cursor' ) {
-      canvas.on('mouse:wheel', handleMouseWheel);
-    }
-    // if (isBgPanelOpen) {
-    //   canvas.on('mouse:up', handleMouseClick);
-    //   canvas.defaultCursor = 'zoom-in';
-    //   canvas.setCursor('zoom-in');
-    // }
-
-    // Cleanup function
-    return () => {
-      canvas.off('mouse:wheel', handleMouseWheel);
-      canvas.off('mouse:up', handleMouseClick);
-      if (isBgPanelOpen) {
-        canvas.defaultCursor = 'default';
-        canvas.setCursor('default');
-      }
-    };
-  }, [activeTool, isBgPanelOpen]);
-  const generateHardMaskDataURL = (): Promise<string | null> => {
-    return new Promise((resolve) => {
-      const canvas = fabricCanvasRef.current;
-      if (!canvas) {
-        resolve(null);
-        return;
-      }
-      const paths = canvas
-        .getObjects()
-        .filter((obj: any) => obj.type === "path");
-      if (paths.length === 0) {
-        resolve(null);
-        return;
-      }
-
-      const softMaskCanvas = new window.fabric.StaticCanvas(null, {
-        width: canvas.getWidth(),
-        height: canvas.getHeight(),
-        backgroundColor: "black",
-      });
-      paths.forEach((path: any) => softMaskCanvas.add(path));
-      softMaskCanvas.renderAll();
-      const softMaskDataURL = softMaskCanvas.toDataURL({ format: "png" });
-
-      const tempImg = new Image();
-      tempImg.crossOrigin = "anonymous";
-      tempImg.onload = () => {
-        const tempCanvas = document.createElement("canvas");
-        const tempCtx = tempCanvas.getContext("2d");
-        if (!tempCtx) {
-          resolve(null);
-          return;
-        }
-        tempCanvas.width = canvas.getWidth();
-        tempCanvas.height = canvas.getHeight();
-        tempCtx.drawImage(tempImg, 0, 0);
-
-        const imageData = tempCtx.getImageData(
-          0,
-          0,
-          tempCanvas.width,
-          tempCanvas.height
-        );
-        const pixels = imageData.data;
-
-        for (let i = 0; i < pixels.length; i += 4) {
-          if (pixels[i] > 0) {
-            pixels[i] = 255;
-            pixels[i + 1] = 255;
-            pixels[i + 2] = 255;
-            pixels[i + 3] = 255;
-          }
-        }
-        tempCtx.putImageData(imageData, 0, 0);
-
-        resolve(tempCanvas.toDataURL("image/png"));
-      };
-      tempImg.src = softMaskDataURL;
-    });
-  };
-
-  const handleDownloadImage = () => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    const dataURL = canvas.toDataURL({ format: "png" });
-    const link = document.createElement("a");
-    link.download = "edited-image.png";
-    link.href = dataURL;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleRemoveObject = async () => {
-    const canvas = fabricCanvasRef.current;
-    const imageObject = imageRef.current; // Use the reference
-
-    if (!canvas || !imageObject) {
-      alert("Image not found on canvas. Please wait for it to load fully.");
-      return;
-    }
-
-    const maskDataURL = await generateHardMaskDataURL();
-
-    if (!maskDataURL) {
-      alert("Please draw on the image to select an area to remove.");
-      return;
-    }
-
-    // // 1. Store the original background color
-    // const originalBackgroundColor = canvas.backgroundColor;
-
-    // // 2. Set background to transparent to export a clean image
-    // canvas.setBackgroundColor('transparent', () => {
-    //   canvas.renderAll();
-
-    //   // 3. Export the image with a transparent background
-    //   const scaledImageDataURL = canvas.toDataURL({ format: 'png', without: ['path'] });
-
-    //   // 4. Immediately restore the original background color in the UI
-    //   canvas.setBackgroundColor(originalBackgroundColor, canvas.renderAll.bind(canvas));
-
-    // 5. Proceed with the API call using the transparent image
-
-    // const imageDataURL = imageObject.toDataURL({ format: "png" });
-
-    const imageDataURL = canvas.toDataURL({
-      format: "png",
-      without: ['path'] // Exclude the mask drawings from the main image
-    });
-
-    // (async () => {
-    try {
-      const imageFile = dataURLtoFile(imageDataURL, "image.png");
-      const maskImageFile = dataURLtoFile(maskDataURL, "mask_image.png");
-      const formData = new FormData();
-      formData.append("background_removed_image", imageFile);
-      formData.append("mask_image", maskImageFile);
-
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-      if (!baseUrl) {
-        throw new Error("Configuration error: API base URL is not defined.");
-      }
-      const apiEndpoint = `${baseUrl}remove-object/`;
-      const response = await fetch(apiEndpoint, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Server Error: ${response.status}. Response: ${errorText}`
-        );
-      }
-
-      const result = await response.json();
-
-      if (result.url) {
-        const paths = canvas
-          .getObjects()
-          .filter((obj: any) => obj.type === "path");
-        paths.forEach((path: any) => canvas.remove(path));
-        canvas.renderAll();
-        onComplete(result.url);
-      } else {
-        throw new Error("API response did not contain a URL.");
-      }
-    } catch (error) {
-      console.error("Failed to remove object:", error);
-      alert(
-        `An error occurred: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
-    }
-    // })();
-  };
+  const handleRemoveObject = useCallback(async () => {
+    await removeObjectApiCall(
+      fabricCanvasRef.current,
+      imageRef.current,
+      onComplete
+    );
+  }, [onComplete]);
 
   const clearDrawings = useCallback(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    const paths = canvas.getObjects().filter((obj: any) => obj.type === "path");
-    paths.forEach((path: any) => canvas.remove(path));
-    canvas.renderAll();
+    clearCanvasDrawings(fabricCanvasRef.current);
   }, []);
 
+  // Return the same interface as before
   return {
     canvasRef,
     imageDimensions,
