@@ -1,13 +1,19 @@
-// src/components/Editor/index.tsx
 "use client";
 
-import React, { useState, FC, useEffect, useCallback } from "react";
+import React, { useState, FC, useCallback, useEffect } from "react";
 import { useFabric } from "../../hooks/useFabric";
-import { Tool } from "../../types/editor";
-import EditorToolbar from "./EditorToolbar";
-import EditorHeader from "./EditorHeader";
-import EditorCanvas from "./EditorCanvas";
-import BackgroundColorPanel from "./BackgroundColorPanel";
+import EditorNavSidebar from "./EditorNavSidebar";
+import MainCanvasArea from "./MainCanvasArea";
+import BackgroundsPanel from "./BackgroundsPanel";
+import CutoutPanel from "./CutoutPanel"; // <-- Import new panel
+import { Tool } from "@/types/editor";
+
+export type EditorTab =
+  | "backgrounds"
+  | "cutout"
+  | "effect"
+  | "adjust"
+  | "design";
 
 interface EditorViewProps {
   initialImageUrl: string;
@@ -21,19 +27,12 @@ const EditorView: FC<EditorViewProps> = ({
   onStartNew,
 }) => {
   const [currentImageUrl, setCurrentImageUrl] = useState(initialImageUrl);
-  const [activeTool, setActiveTool] = useState<Tool>("cursor");
+  const [activeTab, setActiveTab] = useState<EditorTab>("cutout"); // Default to cutout
+  const [activeTool, setActiveTool] = useState<Tool>("brush"); // Default to brush
   const [brushSize, setBrushSize] = useState(30);
   const [isPreviewing, setIsPreviewing] = useState(false);
-  const [hasBeenEdited, setHasBeenEdited] = useState(false);
-  const [isBgPanelOpen, setIsBgPanelOpen] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState("transparent");
-
-  // **CHANGE 2: Add useEffect to close the panel when erase tool is selected**
-  useEffect(() => {
-    if (activeTool === "brush" && isBgPanelOpen) {
-      setIsBgPanelOpen(false);
-    }
-  }, [activeTool, isBgPanelOpen]);
+  const [hasBeenEdited, setHasBeenEdited] = useState(false);
 
   useEffect(() => {
     if (sessionStorage.getItem("bgRemoved") === "true") {
@@ -41,108 +40,88 @@ const EditorView: FC<EditorViewProps> = ({
     }
   }, []);
 
+  // This is the "Erase" API callback
   const handleComplete = useCallback((newUrl: string) => {
-    setCurrentImageUrl(newUrl);
-    setActiveTool("cursor");
-    setHasBeenEdited(true);
-  }, []);
-
-  // **CHANGE 1: Update the panel toggle handler to deselect the erase tool**
-  const handleToggleBgPanel = () => {
-    const newPanelState = !isBgPanelOpen;
-    setIsBgPanelOpen(newPanelState);
-    // If we are opening the panel, ensure the erase tool is deactivated
-    if (newPanelState) {
-      setActiveTool("cursor");
-    }
-  };
-
-  const handleBackgroundColorChange = (color: string) => {
-    clearDrawings();
-    clearBackgroundImage(); // Clear any background image when selecting a color
-    setBackgroundColor(color);
-  };
+    setCurrentImageUrl(newUrl);
+    setActiveTool("cursor"); // Switch back to cursor after erase
+    setHasBeenEdited(true);
+    setActiveTab("backgrounds"); // Switch back to backgrounds tab
+  }, []);
 
   const {
     canvasRef,
     imageDimensions,
-    handleRemoveObject,
+    handleRemoveObject, // This is our "Erase" function
     handleDownloadImage,
     clearDrawings,
     handleBackgroundImageUpload,
     clearBackgroundImage,
     setBackgroundImageFromUrl,
+    setBackgroundColor: setCanvasBackgroundColor,
   } = useFabric(
     currentImageUrl,
     activeTool,
     brushSize,
     handleComplete,
     backgroundColor,
-    () => {}, // Placeholder for onBgImageUpload parameter
-    isBgPanelOpen 
+    () => {},
+    false
   );
 
-  const handleBackgroundImageUploadWrapper = (file: File) => {
-    clearDrawings();
-    setBackgroundColor("transparent"); // Set background to transparent when uploading an image
-    handleBackgroundImageUpload(file);
-  };
-
-  const handleStaticImageSelect = (imageUrl: string) => {
-    clearDrawings();
-    setBackgroundColor("transparent"); // Set background to transparent when selecting an image
-    setBackgroundImageFromUrl(imageUrl);
-  };
-
-  const handleRemoveBackground = () => {
+  const handleBackgroundColorChange = (color: string) => {
     clearDrawings();
     clearBackgroundImage();
-    setBackgroundColor("transparent");
+    setCanvasBackgroundColor(color);
+    setBackgroundColor(color);
+    setHasBeenEdited(true);
+  };
+
+  const handleTabChange = (tab: EditorTab) => {
+    setActiveTab(tab);
+    if (tab === "cutout") {
+      setActiveTool("brush");
+    } else {
+      setActiveTool("cursor");
+    }
   };
 
   return (
-    <div className="w-full max-w-screen-2xl h-[90vh] bg-white rounded-2xl shadow-xl flex overflow-hidden border border-slate-200">
-      <EditorToolbar
-        activeTool={activeTool}
-        setActiveTool={setActiveTool}
-        isPreviewing={isPreviewing}
-        isBgPanelOpen={isBgPanelOpen}
-        onToggleBgPanel={handleToggleBgPanel} // Use the new handler
-      />
-      <div className="flex-1 flex relative">
-        <main className="flex-1 flex flex-col">
-          <EditorHeader
-            brushSize={brushSize}
-            setBrushSize={setBrushSize}
-            activeTool={activeTool}
-            onStartNew={onStartNew}
-            handleRemoveObject={handleRemoveObject}
-            handleDownloadImage={handleDownloadImage}
-            hasBeenEdited={hasBeenEdited}
-            isPreviewing={isPreviewing}
-            onTogglePreview={() => setIsPreviewing(!isPreviewing)}
-            isBgPanelOpen={isBgPanelOpen}
-          />
-          <EditorCanvas
-            canvasRef={canvasRef as React.RefObject<HTMLCanvasElement>}
-            imageDimensions={imageDimensions}
-            activeTool={activeTool}
-            brushSize={brushSize}
-            isPreviewing={isPreviewing}
-            originalImageUrl={originalImageUrl}
-          />
-        </main>
+    <div className="w-full flex-1 flex overflow-hidden">
+      {/* 1. Left Nav Sidebar */}
+      <EditorNavSidebar activeTab={activeTab} onTabChange={handleTabChange} />
 
-        {isBgPanelOpen && (
-          <BackgroundColorPanel
-            onColorChange={handleBackgroundColorChange}
-            onImageUpload={handleBackgroundImageUploadWrapper}
-            onStaticImageSelect={handleStaticImageSelect}
-            onRemoveBackground={handleRemoveBackground}
-            onClose={() => setIsBgPanelOpen(false)}
-          />
-        )}
-      </div>
+      {/* 2. Main Canvas Area (Center) */}
+      <MainCanvasArea
+        activeTab={activeTab}
+        activeTool={activeTool}
+        brushSize={brushSize} // <-- Canvas needs this for the cursor
+        isPreviewing={isPreviewing}
+        onTogglePreview={() => setIsPreviewing(!isPreviewing)}
+        onDownload={handleDownloadImage}
+        // onRemoveObject is no longer passed here
+        hasBeenEdited={hasBeenEdited}
+        canvasRef={canvasRef as React.RefObject<HTMLCanvasElement>}
+        imageDimensions={imageDimensions}
+        originalImageUrl={originalImageUrl}
+      />
+
+      {/* 3. Right Side Panel (Conditional) */}
+      {activeTab === "backgrounds" && (
+        <BackgroundsPanel
+          onColorChange={handleBackgroundColorChange}
+          onImageUpload={handleBackgroundImageUpload}
+          onStaticImageSelect={setBackgroundImageFromUrl}
+        />
+      )}
+
+      {/* NEW: Render CutoutPanel when 'cutout' tab is active */}
+      {activeTab === "cutout" && (
+        <CutoutPanel
+          brushSize={brushSize}
+          setBrushSize={setBrushSize}
+          onErase={handleRemoveObject} // Wire up the erase button
+        />
+      )}
     </div>
   );
 };

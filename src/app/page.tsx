@@ -35,7 +35,7 @@ export default function HomePage() {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-        timeout: 50000,
+        // timeout: 50000,
       });
 
       // Check if the API call was successful and get the URL from the JSON data

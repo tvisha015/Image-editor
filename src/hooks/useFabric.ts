@@ -93,12 +93,12 @@ export const useFabric = (
     updateCanvasImage(imageUrl);
   }, [imageUrl, updateCanvasImage]);
 
-  useEffect(() => {
+  const setBackgroundColor = useCallback((color: string) => {
     const canvas = fabricCanvasRef.current;
     if (canvas) {
-      canvas.setBackgroundColor(backgroundColor, canvas.renderAll.bind(canvas));
+      canvas.setBackgroundColor(color, canvas.renderAll.bind(canvas));
     }
-  }, [backgroundColor]);
+  }, []);
 
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
@@ -385,7 +385,12 @@ export const useFabric = (
 
     // 5. Proceed with the API call using the transparent image
 
-    const imageDataURL = imageObject.toDataURL({ format: "png" });
+    // const imageDataURL = imageObject.toDataURL({ format: "png" });
+
+    const imageDataURL = canvas.toDataURL({
+      format: "png",
+      without: ['path'] // Exclude the mask drawings from the main image
+    });
 
     // (async () => {
     try {
@@ -452,5 +457,6 @@ export const useFabric = (
     handleBackgroundImageUpload,
     clearBackgroundImage,
     setBackgroundImageFromUrl,
+    setBackgroundColor,
   };
 };
