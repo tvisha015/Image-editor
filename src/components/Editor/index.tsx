@@ -9,6 +9,7 @@ import BackgroundsPanel from "./BackgroundsPanel";
 import CutoutPanel from "./CutoutPanel";
 import { BlurType, FilterType, Tool } from "@/types/editor";
 import EffectsPanel from "./EffectsPanel";
+import AdjustPanel from "./AdjustPanel";
 
 export type EditorTab =
   | "backgrounds"
@@ -42,6 +43,20 @@ const EditorView: FC<EditorViewProps> = ({
   const [blurValue, setBlurValue] = useState(20);
   const [isFilterEnabled, setIsFilterEnabled] = useState(false);
   const [filterType, setFilterType] = useState<FilterType>("noir");
+
+  // State for Adjustments
+  const [brightness, setBrightness] = useState(0);
+  const [contrast, setContrast] = useState(0);
+  const [saturation, setSaturation] = useState(0);
+  const [opacity, setOpacity] = useState(1);
+  const [blur, setBlur] = useState(0);
+
+  // Handlers
+  const handleSetBrightness = (val: number) => { setBrightness(val); setHasBeenEdited(true); };
+  const handleSetContrast = (val: number) => { setContrast(val); setHasBeenEdited(true); };
+  const handleSetSaturation = (val: number) => { setSaturation(val); setHasBeenEdited(true); };
+  const handleSetOpacity = (val: number) => { setOpacity(val); setHasBeenEdited(true); };
+  const handleSetBlur = (val: number) => { setBlur(val); setHasBeenEdited(true); };
 
   const handleSetIsBlurEnabled = (val: boolean) => {
     setIsBlurEnabled(val);
@@ -96,11 +111,18 @@ const EditorView: FC<EditorViewProps> = ({
     backgroundColor,
     () => {},
     false,
+    // Effect Props
     isBlurEnabled,
     blurType,
     blurValue,
     isFilterEnabled,
-    filterType
+    filterType,
+    // Adjust Props
+    brightness,
+    contrast,
+    saturation,
+    opacity,
+    blur
   );
 
   const handleBackgroundColorChange = (color: string) => {
@@ -170,6 +192,21 @@ const EditorView: FC<EditorViewProps> = ({
           setIsFilterEnabled={handleSetIsFilterEnabled}
           filterType={filterType}
           setFilterType={handleSetFilterType}
+        />
+      )}
+
+      {activeTab === "adjust" && (
+        <AdjustPanel
+          brightness={brightness}
+          setBrightness={handleSetBrightness}
+          contrast={contrast}
+          setContrast={handleSetContrast}
+          saturation={saturation}
+          setSaturation={handleSetSaturation}
+          opacity={opacity}
+          setOpacity={handleSetOpacity}
+          blur={blur}
+          setBlur={handleSetBlur}
         />
       )}
     </div>

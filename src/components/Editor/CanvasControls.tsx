@@ -71,6 +71,12 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
             Apply filters and effects from the panel
           </span>
         );
+      case "adjust":
+        return (
+          <span className="text-sm font-semibold text-gray-600">
+            Fine-tune brightness, contrast, and more
+          </span>
+        );
       default:
         return (
           <span className="text-sm text-gray-500">

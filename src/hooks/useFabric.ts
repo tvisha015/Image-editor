@@ -1,3 +1,4 @@
+//src/hooks/useFabric.ts
 "use client";
 
 import { useRef, useEffect, useState, useCallback, RefObject } from "react";
@@ -24,11 +25,18 @@ export const useFabric = (
   backgroundColor: string,
   onBgImageUpload: (file: File) => void,
   isBgPanelOpen: boolean,
+  // Effect Props
   isBlurEnabled: boolean,
   blurType: BlurType,
-  blurValue: number,
+  effectBlurValue: number,
   isFilterEnabled: boolean,
-  filterType: FilterType
+  filterType: FilterType,
+  // Adjust Props
+  brightness: number,
+  contrast: number,
+  saturation: number,
+  opacity: number,
+  adjustBlurValue: number
 ) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fabricCanvasRef = useRef<any | null>(null);
@@ -76,7 +84,7 @@ export const useFabric = (
 
     // 2. Add Blur filters if enabled
     if (isBlurEnabled) {
-      const blurIntensity = blurValue / 100; // Scale 0-100 to 0-1
+      const blurIntensity = effectBlurValue / 100; // Scale 0-100 to 0-1
 
       switch (blurType) {
         case "gaussian":
@@ -89,7 +97,7 @@ export const useFabric = (
         case "pixelate":
           // Use the custom Hexagonal filter
           if (window.fabric.Image.filters.HexagonalPixelate) {
-            const hexBlockSize = Math.max(2, Math.round((blurValue / 100) * 16));
+            const hexBlockSize = Math.max(2, Math.round((effectBlurValue / 100) * 16));
             newFilters.push(
               new window.fabric.Image.filters.HexagonalPixelate({
                 blocksize: hexBlockSize,
@@ -97,7 +105,7 @@ export const useFabric = (
             );
           } else {
             console.warn("HexagonalPixelate filter failed to load. Falling back to square.");
-            const fallbackBlockSize = Math.max(2, Math.round((blurValue / 100) * 20));
+            const fallbackBlockSize = Math.max(2, Math.round((effectBlurValue / 100) * 20));
             newFilters.push(
               new window.fabric.Image.filters.Pixelate({ blocksize: fallbackBlockSize })
             );
@@ -106,7 +114,7 @@ export const useFabric = (
 
         case "square":
           // Use the standard Square filter
-          const blockSize = Math.max(2, Math.round((blurValue / 100) * 20));
+          const blockSize = Math.max(2, Math.round((effectBlurValue / 100) * 20));
           newFilters.push(
             new window.fabric.Image.filters.Pixelate({ blocksize: blockSize })
           );
@@ -115,8 +123,8 @@ export const useFabric = (
         case "motion":
           // Your existing motion blur logic
           let matrixSize = 3;
-          if (blurValue > 33) matrixSize = 5;
-          if (blurValue > 66) matrixSize = 7;
+          if (effectBlurValue > 33) matrixSize = 5;
+          if (effectBlurValue > 66) matrixSize = 7;
           
           let motionMatrix = [];
           const val = 1 / matrixSize;
@@ -149,6 +157,21 @@ export const useFabric = (
           break;
       }
     }
+
+    if (brightness !== 0) {
+      newFilters.push(new window.fabric.Image.filters.Brightness({ brightness }));
+    }
+    if (contrast !== 0) {
+      newFilters.push(new window.fabric.Image.filters.Contrast({ contrast }));
+    }
+    if (saturation !== 0) {
+      newFilters.push(new window.fabric.Image.filters.Saturation({ saturation }));
+    }
+    if (adjustBlurValue > 0) {
+      newFilters.push(new window.fabric.Image.filters.Blur({ blur: adjustBlurValue }));
+    }
+    // Opacity is a property, not a filter
+    image.set('opacity', opacity);
 
     // 3. Add simple Filters if enabled
     if (isFilterEnabled) {
@@ -199,12 +222,16 @@ export const useFabric = (
     canvas.renderAll();
 
   }, [
-    // --- FIX 5: Added the missing dependency ---
     isBlurEnabled, 
     blurType,
-    blurValue,
+    effectBlurValue, // Use the correctly named prop
     isFilterEnabled,
     filterType,
+    brightness,
+    contrast,
+    saturation,
+    opacity,
+    adjustBlurValue, // Use the correctly named prop
   ]);
 
   // 6. Wrap Actions in useCallback (All unchanged)
