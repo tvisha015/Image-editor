@@ -6,7 +6,8 @@ import EditorNavSidebar from "./EditorNavSidebar";
 import MainCanvasArea from "./MainCanvasArea";
 import BackgroundsPanel from "./BackgroundsPanel";
 import CutoutPanel from "./CutoutPanel"; // <-- Import new panel
-import { Tool } from "@/types/editor";
+import { BlurType, FilterType, Tool } from "@/types/editor";
+import EffectsPanel from "./EffectsPanel";
 
 export type EditorTab =
   | "backgrounds"
@@ -33,6 +34,34 @@ const EditorView: FC<EditorViewProps> = ({
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState("transparent");
   const [hasBeenEdited, setHasBeenEdited] = useState(false);
+
+  // State for Effects
+  const [isBlurEnabled, setIsBlurEnabled] = useState(false);
+  const [blurType, setBlurType] = useState<BlurType>("gaussian");
+  const [blurValue, setBlurValue] = useState(20);
+  const [isFilterEnabled, setIsFilterEnabled] = useState(false);
+  const [filterType, setFilterType] = useState<FilterType>("noir");
+
+  const handleSetIsBlurEnabled = (val: boolean) => {
+    setIsBlurEnabled(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetBlurType = (val: BlurType) => {
+    setBlurType(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetBlurValue = (val: number) => {
+    setBlurValue(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetIsFilterEnabled = (val: boolean) => {
+    setIsFilterEnabled(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetFilterType = (val: FilterType) => {
+    setFilterType(val);
+    setHasBeenEdited(true);
+  };
 
   useEffect(() => {
     if (sessionStorage.getItem("bgRemoved") === "true") {
@@ -65,7 +94,12 @@ const EditorView: FC<EditorViewProps> = ({
     handleComplete,
     backgroundColor,
     () => {},
-    false
+    false,
+    isBlurEnabled,
+    blurType,
+    blurValue,
+    isFilterEnabled,
+    filterType
   );
 
   const handleBackgroundColorChange = (color: string) => {
@@ -120,6 +154,21 @@ const EditorView: FC<EditorViewProps> = ({
           brushSize={brushSize}
           setBrushSize={setBrushSize}
           onErase={handleRemoveObject} // Wire up the erase button
+        />
+      )}
+
+      {activeTab === "effect" && (
+        <EffectsPanel
+          isBlurEnabled={isBlurEnabled}
+          setIsBlurEnabled={handleSetIsBlurEnabled}
+          blurType={blurType}
+          setBlurType={handleSetBlurType}
+          blurValue={blurValue}
+          setBlurValue={handleSetBlurValue}
+          isFilterEnabled={isFilterEnabled}
+          setIsFilterEnabled={handleSetIsFilterEnabled}
+          filterType={filterType}
+          setFilterType={handleSetFilterType}
         />
       )}
     </div>

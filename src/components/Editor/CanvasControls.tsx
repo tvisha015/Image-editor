@@ -14,9 +14,7 @@ const PreviewToggle: React.FC<{
       onClick={!isPreviewing ? onToggle : undefined}
       className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors
         ${
-          !isPreviewing
-            ? "text-gray-600"
-            : "bg-white text-gray-900 shadow-sm"
+          !isPreviewing ? "text-gray-600" : "bg-white text-gray-900 shadow-sm"
         }`}
     >
       Before
@@ -25,9 +23,7 @@ const PreviewToggle: React.FC<{
       onClick={isPreviewing ? onToggle : undefined}
       className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors
         ${
-          !isPreviewing
-            ? "bg-white text-gray-900 shadow-sm"
-            : "text-gray-600"
+          !isPreviewing ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
         }`}
     >
       After
@@ -68,6 +64,12 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
             Draw on the image to erase
           </span>
         );
+      case "effect": 
+        return (
+          <span className="text-sm font-semibold text-gray-600">
+            Apply filters and effects from the panel
+          </span>
+        );
       default:
         return (
           <span className="text-sm text-gray-500">
@@ -92,10 +94,7 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
 
       {/* Right Side: Before/After Toggle */}
       {hasBeenEdited && (
-        <PreviewToggle
-          isPreviewing={isPreviewing}
-          onToggle={onTogglePreview}
-        />
+        <PreviewToggle isPreviewing={isPreviewing} onToggle={onTogglePreview} />
       )}
     </header>
   );
