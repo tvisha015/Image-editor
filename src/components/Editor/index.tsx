@@ -47,17 +47,22 @@ const EditorView: FC<EditorViewProps> = ({
   // State for Adjustments
   const [brightness, setBrightness] = useState(0);
   const [contrast, setContrast] = useState(0);
-  const [saturation, setSaturation] = useState(0);
+  const [highlight, setHighlight] = useState(0);
+  const [sharpen, setSharpen] = useState(0);
+  const [shadow, setShadow] = useState(0); 
   const [opacity, setOpacity] = useState(1);
-  const [blur, setBlur] = useState(0);
+  const [adjustBlur, setAdjustBlur] = useState(0);
 
-  // Handlers
+  // Handlers for Adjustments
   const handleSetBrightness = (val: number) => { setBrightness(val); setHasBeenEdited(true); };
   const handleSetContrast = (val: number) => { setContrast(val); setHasBeenEdited(true); };
-  const handleSetSaturation = (val: number) => { setSaturation(val); setHasBeenEdited(true); };
+  const handleSetHighlight = (val: number) => { setHighlight(val); setHasBeenEdited(true); };
+  const handleSetSharpen = (val: number) => { setSharpen(val); setHasBeenEdited(true); };
+  const handleSetShadow = (val: number) => { setShadow(val); setHasBeenEdited(true); };
   const handleSetOpacity = (val: number) => { setOpacity(val); setHasBeenEdited(true); };
-  const handleSetBlur = (val: number) => { setBlur(val); setHasBeenEdited(true); };
+  const handleSetAdjustBlur = (val: number) => { setAdjustBlur(val); setHasBeenEdited(true); };
 
+  // Handlers for Effects
   const handleSetIsBlurEnabled = (val: boolean) => {
     setIsBlurEnabled(val);
     setHasBeenEdited(true);
@@ -120,9 +125,11 @@ const EditorView: FC<EditorViewProps> = ({
     // Adjust Props
     brightness,
     contrast,
-    saturation,
+    highlight,
+    sharpen,
+    shadow,
     opacity,
-    blur
+    adjustBlur
   );
 
   const handleBackgroundColorChange = (color: string) => {
@@ -201,12 +208,16 @@ const EditorView: FC<EditorViewProps> = ({
           setBrightness={handleSetBrightness}
           contrast={contrast}
           setContrast={handleSetContrast}
-          saturation={saturation}
-          setSaturation={handleSetSaturation}
+          highlight={highlight}
+          setHighlight={handleSetHighlight}
+          sharpen={sharpen}
+          setSharpen={handleSetSharpen}
+          shadow={shadow}
+          setShadow={handleSetShadow}
           opacity={opacity}
           setOpacity={handleSetOpacity}
-          blur={blur}
-          setBlur={handleSetBlur}
+          adjustBlur={adjustBlur}
+          setAdjustBlur={handleSetAdjustBlur}
         />
       )}
     </div>

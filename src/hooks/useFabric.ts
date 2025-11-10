@@ -1,4 +1,3 @@
-//src/hooks/useFabric.ts
 "use client";
 
 import { useRef, useEffect, useState, useCallback, RefObject } from "react";
@@ -15,6 +14,7 @@ import {
 } from "@/libs/fabric/backgroundActions";
 import { exportCanvasImage, removeObjectApiCall } from "@/libs/fabric/apiActions";
 
+// We're parking the hexagon filter for now
 // import "@/libs/fabric/customFilters";
 
 export const useFabric = (
@@ -34,9 +34,11 @@ export const useFabric = (
   // Adjust Props
   brightness: number,
   contrast: number,
-  saturation: number,
+  highlight: number,
+  sharpen: number,
+  shadow: number,
   opacity: number,
-  adjustBlurValue: number
+  adjustBlur: number
 ) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fabricCanvasRef = useRef<any | null>(null);
@@ -72,7 +74,7 @@ export const useFabric = (
   // 4. Setup Zoom Effect
   useFabricZoom(fabricCanvasRef, activeTool, isBgPanelOpen);
 
-  // --- 5. Apply Effects (Logic updated) ---
+  // --- 5. Apply All Filters & Properties (Logic Corrected) ---
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
     const image = imageRef.current;
@@ -82,9 +84,41 @@ export const useFabric = (
 
     const newFilters: any[] = [];
 
-    // 2. Add Blur filters if enabled
+    // --- A. APPLY ADJUSTMENTS ---
+    if (brightness !== 0) {
+      newFilters.push(new window.fabric.Image.filters.Brightness({ brightness }));
+    }
+    if (contrast !== 0) {
+      newFilters.push(new window.fabric.Image.filters.Contrast({ contrast }));
+    }
+
+    const gammaValue = 1.0 + highlight;
+    if (highlight > 0) {
+      newFilters.push(new window.fabric.Image.filters.Gamma({
+        gamma: [gammaValue, gammaValue, gammaValue]
+      }));
+    }
+
+    // --- FIX 1: Moved sharpen logic out of shadow block ---
+    if (sharpen > 0) {
+      const s = sharpen * 1.5;
+      newFilters.push(new window.fabric.Image.filters.Convolute({
+        matrix: [
+           0,   -s,    0,
+          -s,  1 + 4*s,  -s,
+           0,   -s,    0
+        ]
+      }));
+    }
+    
+    // --- FIX 2: Add logic for the Adjust panel's blur ---
+    if (adjustBlur > 0) {
+       newFilters.push(new window.fabric.Image.filters.Blur({ blur: adjustBlur }));
+    }
+
+    // --- B. APPLY "EFFECT" TAB BLUR ---
     if (isBlurEnabled) {
-      const blurIntensity = effectBlurValue / 100; // Scale 0-100 to 0-1
+      const blurIntensity = effectBlurValue / 100;
 
       switch (blurType) {
         case "gaussian":
@@ -92,8 +126,6 @@ export const useFabric = (
             new window.fabric.Image.filters.Blur({ blur: blurIntensity })
           );
           break;
-
-        // --- FIX 4: Re-introducing Hexagon/Square logic ---
         case "pixelate":
           // Use the custom Hexagonal filter
           if (window.fabric.Image.filters.HexagonalPixelate) {
@@ -113,44 +145,29 @@ export const useFabric = (
           break;
 
         case "square":
-          // Use the standard Square filter
           const blockSize = Math.max(2, Math.round((effectBlurValue / 100) * 20));
           newFilters.push(
             new window.fabric.Image.filters.Pixelate({ blocksize: blockSize })
           );
           break;
-
         case "motion":
-          // Your existing motion blur logic
           let matrixSize = 3;
           if (effectBlurValue > 33) matrixSize = 5;
           if (effectBlurValue > 66) matrixSize = 7;
           
           let motionMatrix = [];
           const val = 1 / matrixSize;
-
           if (matrixSize === 3) {
             motionMatrix = [0, 0, 0, val, val, val, 0, 0, 0];
           } else if (matrixSize === 5) {
+            motionMatrix = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, val, val, val, val, val, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+          } else {
             motionMatrix = [
-              0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0,
-              val, val, val, val, val,
-              0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0
-            ];
-          } else { // 7x7
-            motionMatrix = [
-              0, 0, 0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
               val, val, val, val, val, val, val,
-              0, 0, 0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0, 0, 0
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             ];
           }
-          
           newFilters.push(
             new window.fabric.Image.filters.Convolute({ matrix: motionMatrix })
           );
@@ -158,22 +175,7 @@ export const useFabric = (
       }
     }
 
-    if (brightness !== 0) {
-      newFilters.push(new window.fabric.Image.filters.Brightness({ brightness }));
-    }
-    if (contrast !== 0) {
-      newFilters.push(new window.fabric.Image.filters.Contrast({ contrast }));
-    }
-    if (saturation !== 0) {
-      newFilters.push(new window.fabric.Image.filters.Saturation({ saturation }));
-    }
-    if (adjustBlurValue > 0) {
-      newFilters.push(new window.fabric.Image.filters.Blur({ blur: adjustBlurValue }));
-    }
-    // Opacity is a property, not a filter
-    image.set('opacity', opacity);
-
-    // 3. Add simple Filters if enabled
+    // --- C. APPLY "EFFECT" TAB FILTERS ---
     if (isFilterEnabled) {
       switch (filterType) {
         case "noir":
@@ -191,32 +193,33 @@ export const useFabric = (
           newFilters.push(new window.fabric.Image.filters.Brightness({ brightness: 0.1 }));
           break;
         case "process":
-          // This matrix gives a "cross-process" vintage look by shifting color channels
           newFilters.push(new window.fabric.Image.filters.ColorMatrix({
-            matrix: [
-              1.0, 0.2, 0.0, 0, 0.05,
-              0.0, 1.0, 0.0, 0, 0.05,
-              0.2, 0.0, 1.0, 0, 0.05,
-              0,   0,   0, 1, 0
-            ]
+            matrix: [ 1.0, 0.2, 0.0, 0, 0.05, 0.0, 1.0, 0.0, 0, 0.05, 0.2, 0.0, 1.0, 0, 0.05, 0, 0, 0, 1, 0]
           }));
           break;
-          
         case "tonal":
-          // This matrix mutes reds and boosts blues for a "cool" tonal effect
           newFilters.push(new window.fabric.Image.filters.ColorMatrix({
-            matrix: [
-              0.7, 0,   0,   0, 0.1, // Less red
-              0,   1.0, 0,   0, 0,   // Normal green
-              0,   0,   1.3, 0, 0.1, // More blue
-              0,   0,   0,   1, 0
-            ]
+            matrix: [ 0.7, 0, 0, 0, 0.1, 0, 1.0, 0, 0, 0, 0, 0, 1.3, 0, 0.1, 0, 0, 0, 1, 0]
           }));
           break;
       }
     }
 
-    // 4. Apply the new filter array to the image
+    // --- D. APPLY OBJECT PROPERTIES (NOT FILTERS) ---
+    image.set('opacity', opacity);
+
+    if (shadow > 0) {
+      image.set('shadow', new window.fabric.Shadow({
+        color: 'rgba(0, 0, 0, 0.7)',
+        blur: shadow * 20, // Map 0-1 to 0-20 blur radius
+        offsetX: shadow * 5, // Map 0-1 to 0-5 offset
+        offsetY: shadow * 5
+      }));
+    } else {
+      image.set('shadow', null);
+    }
+
+    // --- E. APPLY ALL FILTERS AND RENDER ---
     image.filters = newFilters;
     image.applyFilters();
     canvas.renderAll();
@@ -224,17 +227,19 @@ export const useFabric = (
   }, [
     isBlurEnabled, 
     blurType,
-    effectBlurValue, // Use the correctly named prop
+    effectBlurValue,
     isFilterEnabled,
     filterType,
     brightness,
     contrast,
-    saturation,
+    highlight,
+    sharpen,
+    shadow,
     opacity,
-    adjustBlurValue, // Use the correctly named prop
+    adjustBlur
   ]);
 
-  // 6. Wrap Actions in useCallback (All unchanged)
+  // 6. Wrap Actions in useCallback
   const setBackgroundColor = useCallback((color: string) => {
     setCanvasColor(fabricCanvasRef.current, color);
   }, []);

@@ -42,12 +42,16 @@ interface AdjustPanelProps {
   setBrightness: (val: number) => void;
   contrast: number;
   setContrast: (val: number) => void;
-  saturation: number;
-  setSaturation: (val: number) => void;
+  highlight: number;
+  setHighlight: (val: number) => void;
+  sharpen: number;
+  setSharpen: (val: number) => void;
+  shadow: number;
+  setShadow: (val: number) => void;
   opacity: number;
   setOpacity: (val: number) => void;
-  blur: number;
-  setBlur: (val: number) => void;
+  adjustBlur: number;
+  setAdjustBlur: (val: number) => void;
 }
 
 const AdjustPanel: FC<AdjustPanelProps> = ({
@@ -55,12 +59,16 @@ const AdjustPanel: FC<AdjustPanelProps> = ({
   setBrightness,
   contrast,
   setContrast,
-  saturation,
-  setSaturation,
+  highlight,
+  setHighlight,
+  sharpen,
+  setSharpen,
+  shadow,
+  setShadow,
   opacity,
   setOpacity,
-  blur,
-  setBlur,
+  adjustBlur,
+  setAdjustBlur,
 }) => {
   return (
     <aside className="w-80 bg-white shadow-lg z-10 border-l border-gray-200 p-4 flex-shrink-0 flex flex-col gap-6 overflow-y-auto">
@@ -70,26 +78,37 @@ const AdjustPanel: FC<AdjustPanelProps> = ({
         <Slider
           label="Brightness"
           value={brightness}
-          min={-1} max={1}
+          min={-0.5} // Toned down range for better control
+          max={0.5}
           onChange={setBrightness}
         />
-        <Slider 
-          label="Contrast" 
-          value={contrast} 
-          min={-1} max={1}
-          onChange={setContrast} 
+        <Slider
+          label="Contrast"
+          value={contrast}
+          min={-0.5}
+          max={0.5}
+          onChange={setContrast}
         />
         <Slider
-          label="Saturation"
-          value={saturation}
-          min={-1} max={1}
-          onChange={setSaturation}
+          label="Highlight"
+          value={highlight}
+          min={0} // 0 (normal) to 1 (crushed)
+          max={1}
+          onChange={setHighlight}
         />
         <Slider
-          label="Blur"
-          value={blur}
-          min={0} max={1}
-          onChange={setBlur}
+          label="Sharpen"
+          value={sharpen}
+          min={0} // 0 (normal) to 1 (max sharpen)
+          max={1}
+          onChange={setSharpen}
+        />
+        <Slider
+          label="Shadow"
+          value={shadow}
+          min={0} // 0 (no shadow) to 1 (max shadow)
+          max={1}
+          onChange={setShadow}
         />
         <Slider
           label="Opacity"
@@ -97,6 +116,13 @@ const AdjustPanel: FC<AdjustPanelProps> = ({
           min={0}
           max={1}
           onChange={setOpacity}
+        />
+        <Slider
+          label="Blur"
+          value={adjustBlur}
+          min={0}
+          max={1}
+          onChange={setAdjustBlur}
         />
       </div>
     </aside>
