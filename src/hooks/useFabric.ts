@@ -14,7 +14,7 @@ import {
 } from "@/libs/fabric/backgroundActions";
 import { exportCanvasImage, removeObjectApiCall } from "@/libs/fabric/apiActions";
 
-import "@/libs/fabric/customFilters";
+// import "@/libs/fabric/customFilters";
 
 export const useFabric = (
   imageUrl: string,
@@ -166,6 +166,29 @@ export const useFabric = (
         case "fade":
           newFilters.push(new window.fabric.Image.filters.Saturation({ saturation: -0.3 }));
           newFilters.push(new window.fabric.Image.filters.Brightness({ brightness: 0.1 }));
+          break;
+        case "process":
+          // This matrix gives a "cross-process" vintage look by shifting color channels
+          newFilters.push(new window.fabric.Image.filters.ColorMatrix({
+            matrix: [
+              1.0, 0.2, 0.0, 0, 0.05,
+              0.0, 1.0, 0.0, 0, 0.05,
+              0.2, 0.0, 1.0, 0, 0.05,
+              0,   0,   0, 1, 0
+            ]
+          }));
+          break;
+          
+        case "tonal":
+          // This matrix mutes reds and boosts blues for a "cool" tonal effect
+          newFilters.push(new window.fabric.Image.filters.ColorMatrix({
+            matrix: [
+              0.7, 0,   0,   0, 0.1, // Less red
+              0,   1.0, 0,   0, 0,   // Normal green
+              0,   0,   1.3, 0, 0.1, // More blue
+              0,   0,   0,   1, 0
+            ]
+          }));
           break;
       }
     }
