@@ -1,3 +1,4 @@
+// src/components/Editor/CanvasControls.tsx
 "use client";
 
 import React from "react";

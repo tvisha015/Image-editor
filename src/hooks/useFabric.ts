@@ -1,15 +1,20 @@
-// src/hooks/useFabric.ts
 "use client";
 
 import { useRef, useEffect, useState, useCallback, RefObject } from "react";
-import { BlurType, FilterType, Tool } from "../types/editor";
+import { Tool, BlurType, FilterType } from "../types/editor";
 
 import { initFabricCanvas, updateMainImage } from "@/libs/fabric/canvasSetup";
 import { clearCanvasDrawings, useFabricBrush } from "@/libs/fabric/drawingActions";
 import { useFabricZoom } from "@/libs/fabric/interactionEffects";
-import { clearCanvasBgImage, setCanvasBgImageFromUrl, setCanvasColor, uploadCanvasBgImage } from "@/libs/fabric/backgroundActions";
+import {
+  clearCanvasBgImage,
+  setCanvasBgImageFromUrl,
+  setCanvasColor,
+  uploadCanvasBgImage,
+} from "@/libs/fabric/backgroundActions";
 import { exportCanvasImage, removeObjectApiCall } from "@/libs/fabric/apiActions";
 
+import "@/libs/fabric/customFilters";
 
 export const useFabric = (
   imageUrl: string,
@@ -17,7 +22,7 @@ export const useFabric = (
   brushSize: number,
   onComplete: (url: string) => void,
   backgroundColor: string,
-  onBgImageUpload: (file: File) => void, // This prop is unused in the new structure
+  onBgImageUpload: (file: File) => void,
   isBgPanelOpen: boolean,
   isBlurEnabled: boolean,
   blurType: BlurType,
@@ -25,7 +30,7 @@ export const useFabric = (
   isFilterEnabled: boolean,
   filterType: FilterType
 ) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fabricCanvasRef = useRef<any | null>(null);
   const imageRef = useRef<any | null>(null);
   const [imageDimensions, setImageDimensions] = useState({
@@ -51,7 +56,7 @@ export const useFabric = (
       activeTool,
       setImageDimensions
     );
-  }, [imageUrl, activeTool]); // Run when image or tool (for selectability) changes
+  }, [imageUrl, activeTool]);
 
   // 3. Setup Brush Effect
   useFabricBrush(fabricCanvasRef, activeTool, brushSize);
@@ -59,6 +64,7 @@ export const useFabric = (
   // 4. Setup Zoom Effect
   useFabricZoom(fabricCanvasRef, activeTool, isBgPanelOpen);
 
+  // --- 5. Apply Effects (Logic updated) ---
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
     const image = imageRef.current;
@@ -66,7 +72,6 @@ export const useFabric = (
       return;
     }
 
-    // 1. Create a new filters array
     const newFilters: any[] = [];
 
     // 2. Add Blur filters if enabled
@@ -79,19 +84,36 @@ export const useFabric = (
             new window.fabric.Image.filters.Blur({ blur: blurIntensity })
           );
           break;
+
+        // --- FIX 4: Re-introducing Hexagon/Square logic ---
         case "pixelate":
+          // Use the custom Hexagonal filter
+          if (window.fabric.Image.filters.HexagonalPixelate) {
+            const hexBlockSize = Math.max(2, Math.round((blurValue / 100) * 16));
+            newFilters.push(
+              new window.fabric.Image.filters.HexagonalPixelate({
+                blocksize: hexBlockSize,
+              })
+            );
+          } else {
+            console.warn("HexagonalPixelate filter failed to load. Falling back to square.");
+            const fallbackBlockSize = Math.max(2, Math.round((blurValue / 100) * 20));
+            newFilters.push(
+              new window.fabric.Image.filters.Pixelate({ blocksize: fallbackBlockSize })
+            );
+          }
+          break;
+
         case "square":
-          // --- THIS IS THE SQUARE PIXEL LOGIC ---
-          // Both buttons will do this.
-          // Blocksize needs to be at least 2 to be visible
-          const blockSize = Math.max(2, Math.round((blurValue / 100) * 20)); // Scales 2-20
+          // Use the standard Square filter
+          const blockSize = Math.max(2, Math.round((blurValue / 100) * 20));
           newFilters.push(
             new window.fabric.Image.filters.Pixelate({ blocksize: blockSize })
           );
           break;
+
         case "motion":
-          // --- THIS IS THE NEW MOTION BLUR LOGIC ---
-          // We use the slider to pick a blur strength (matrix size)
+          // Your existing motion blur logic
           let matrixSize = 3;
           if (blurValue > 33) matrixSize = 5;
           if (blurValue > 66) matrixSize = 7;
@@ -154,14 +176,15 @@ export const useFabric = (
     canvas.renderAll();
 
   }, [
-    isBlurEnabled,
+    // --- FIX 5: Added the missing dependency ---
+    isBlurEnabled, 
     blurType,
     blurValue,
     isFilterEnabled,
     filterType,
   ]);
 
-  // 5. Wrap Actions in useCallback
+  // 6. Wrap Actions in useCallback (All unchanged)
   const setBackgroundColor = useCallback((color: string) => {
     setCanvasColor(fabricCanvasRef.current, color);
   }, []);

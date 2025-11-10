@@ -1,3 +1,4 @@
+// src/components/Editor/index.tsx
 "use client";
 
 import React, { useState, FC, useCallback, useEffect } from "react";
@@ -5,7 +6,7 @@ import { useFabric } from "../../hooks/useFabric";
 import EditorNavSidebar from "./EditorNavSidebar";
 import MainCanvasArea from "./MainCanvasArea";
 import BackgroundsPanel from "./BackgroundsPanel";
-import CutoutPanel from "./CutoutPanel"; // <-- Import new panel
+import CutoutPanel from "./CutoutPanel";
 import { BlurType, FilterType, Tool } from "@/types/editor";
 import EffectsPanel from "./EffectsPanel";
 

@@ -1,7 +1,8 @@
+// src/components/Editor/EffectsPanel.tsx
 "use client";
 
 import React, { FC } from "react";
-import { BlurType, FilterType } from "@/types/editor"; // Import types
+import { BlurType, FilterType } from "@/types/editor";
 
 // --- Helper: Toggle Switch Component ---
 const ToggleSwitch: FC<{
