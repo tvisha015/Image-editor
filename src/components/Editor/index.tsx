@@ -10,6 +10,7 @@ import CutoutPanel from "./CutoutPanel";
 import { BlurType, FilterType, Tool } from "@/types/editor";
 import EffectsPanel from "./EffectsPanel";
 import AdjustPanel from "./AdjustPanel";
+import DesignPanel from "./DesignPanel";
 
 export type EditorTab =
   | "backgrounds"
@@ -108,6 +109,9 @@ const EditorView: FC<EditorViewProps> = ({
     clearBackgroundImage,
     setBackgroundImageFromUrl,
     setBackgroundColor: setCanvasBackgroundColor,
+    addStyledText,
+    setOverlay,
+    removeOverlay,
   } = useFabric(
     currentImageUrl,
     activeTool,
@@ -218,6 +222,14 @@ const EditorView: FC<EditorViewProps> = ({
           setOpacity={handleSetOpacity}
           adjustBlur={adjustBlur}
           setAdjustBlur={handleSetAdjustBlur}
+        />
+      )}
+
+      {activeTab === "design" && (
+        <DesignPanel
+          onAddTextDesign={addStyledText}
+          onSelectTemplate={setOverlay}
+          onRemoveTemplate={removeOverlay}
         />
       )}
     </div>

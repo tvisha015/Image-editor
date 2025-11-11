@@ -77,12 +77,14 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
             Fine-tune brightness, contrast, and more
           </span>
         );
-      default:
+      case "design":
         return (
-          <span className="text-sm text-gray-500">
-            {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} controls
+          <span className="text-sm font-semibold text-gray-600">
+            Add text stickers or overlay templates
           </span>
         );
+      default:
+        return null;
     }
   };
 

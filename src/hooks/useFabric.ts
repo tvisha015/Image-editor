@@ -38,7 +38,7 @@ export const useFabric = (
   sharpen: number,
   shadow: number,
   opacity: number,
-  adjustBlur: number
+  adjustBlur: number,
 ) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fabricCanvasRef = useRef<any | null>(null);
@@ -73,6 +73,45 @@ export const useFabric = (
 
   // 4. Setup Zoom Effect
   useFabricZoom(fabricCanvasRef, activeTool, isBgPanelOpen);
+
+  // Handle Delete Key for Object Removal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas) return;
+
+      // Check for Delete or Backspace keys
+      if (e.key === "Delete" || e.key === "Backspace") {
+        
+        // Prevent deletion if the user is typing in an input field (like a slider or text box)
+        const target = e.target as HTMLElement;
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
+          return;
+        }
+
+        const activeObjects = canvas.getActiveObjects();
+        
+        if (activeObjects.length) {
+          // Check if the active object is currently being edited (e.g., text editing)
+          const isEditing = activeObjects.some((obj: any) => obj.isEditing);
+          
+          if (!isEditing) {
+            activeObjects.forEach((obj: any) => {
+              canvas.remove(obj);
+            });
+            canvas.discardActiveObject();
+            canvas.renderAll();
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   // --- 5. Apply All Filters & Properties (Logic Corrected) ---
   useEffect(() => {
@@ -272,6 +311,76 @@ export const useFabric = (
     clearCanvasDrawings(fabricCanvasRef.current);
   }, []);
 
+  // --- 6. NEW FUNCTION: Add SVG Text Design ---
+  // const addSvgText = useCallback((url: string) => {
+  //   const canvas = fabricCanvasRef.current;
+  //   if (!canvas || !window.fabric) return;
+
+  //   window.fabric.loadSVGFromURL(url, (objects: any[], options: any) => {
+  //     if (!objects || objects.length === 0) return;
+
+  //     // Group the SVG elements so they move together
+  //     const svgGroup = window.fabric.util.groupSVGElements(objects, options);
+      
+  //     // Center and scale reasonably
+  //     svgGroup.scaleToWidth(canvas.getWidth() * 0.5); 
+      
+  //     canvas.add(svgGroup);
+  //     canvas.setActiveObject(svgGroup);
+  //     canvas.centerObject(svgGroup);
+  //     canvas.renderAll();
+  //   });
+  // }, []);
+  const addStyledText = useCallback((text: string, style: any) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !window.fabric) return;
+
+    // Create the Shadow object if the style has one
+    let shadowObj = null;
+    if (style.shadow) {
+      shadowObj = new window.fabric.Shadow(style.shadow);
+    }
+
+    const textObj = new window.fabric.IText(text, {
+      left: canvas.getWidth() / 2,
+      top: canvas.getHeight() / 2,
+      originX: 'center',
+      originY: 'center',
+      ...style, // Apply all simple properties (fill, font, etc.)
+      shadow: shadowObj, // Apply the shadow object
+    });
+
+    canvas.add(textObj);
+    canvas.setActiveObject(textObj);
+    canvas.renderAll();
+  }, []);
+
+  // --- 7. NEW FUNCTION: Set Template Overlay ---
+  const setOverlay = useCallback((imageUrl: string) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !window.fabric) return;
+
+    window.fabric.Image.fromURL(imageUrl, (img: any) => {
+       // Scale the overlay to cover the canvas exactly
+       img.scaleToWidth(canvas.getWidth());
+       img.scaleToHeight(canvas.getHeight());
+
+       canvas.setOverlayImage(img, canvas.renderAll.bind(canvas), {
+         originX: 'left',
+         originY: 'top',
+         crossOrigin: 'anonymous'
+       });
+    }, { crossOrigin: 'anonymous' });
+  }, []);
+
+  const removeOverlay = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !window.fabric) return;
+
+    // Setting it to null removes it
+    canvas.setOverlayImage(null, canvas.renderAll.bind(canvas));
+  }, []);
+
   // Return the same interface as before
   return {
     canvasRef,
@@ -283,5 +392,8 @@ export const useFabric = (
     clearBackgroundImage,
     setBackgroundImageFromUrl,
     setBackgroundColor,
+    addStyledText,
+    setOverlay,
+    removeOverlay,
   };
 };
