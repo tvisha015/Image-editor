@@ -4,19 +4,27 @@
 // Sets the solid background color of the canvas
 export const setCanvasColor = (fabricCanvas: any, color: string) => {
   if (fabricCanvas) {
-    fabricCanvas.setBackgroundColor(color, fabricCanvas.renderAll.bind(fabricCanvas));
+    fabricCanvas.setBackgroundColor(
+      color,
+      fabricCanvas.renderAll.bind(fabricCanvas)
+    );
   }
 };
 
-// Clears the background image
 export const clearCanvasBgImage = (fabricCanvas: any) => {
   if (fabricCanvas) {
-    fabricCanvas.setBackgroundImage(null, fabricCanvas.renderAll.bind(fabricCanvas));
+    fabricCanvas.setBackgroundImage(
+      null,
+      fabricCanvas.renderAll.bind(fabricCanvas)
+    );
   }
 };
 
-// Sets the background image from a static URL
-export const setCanvasBgImageFromUrl = (fabricCanvas: any, imageUrl: string) => {
+export const setCanvasBgImageFromUrl = (
+  fabricCanvas: any,
+  imageUrl: string,
+  onComplete?: () => void // Callback
+) => {
   if (!fabricCanvas || !window.fabric) return;
 
   requestAnimationFrame(() => {
@@ -29,23 +37,32 @@ export const setCanvasBgImageFromUrl = (fabricCanvas: any, imageUrl: string) => 
         const scaleY = canvasHeight / (img.height || 1);
         const scale = Math.max(scaleX, scaleY);
 
-        fabricCanvas.setBackgroundImage(img, fabricCanvas.renderAll.bind(fabricCanvas), {
-          scaleX: scale,
-          scaleY: scale,
-          originX: "left",
-          originY: "top",
-          left: 0,
-          top: 0,
-        });
-        fabricCanvas.renderAll();
+        fabricCanvas.setBackgroundImage(
+          img,
+          () => {
+            fabricCanvas.renderAll();
+            if (onComplete) onComplete(); // Trigger
+          },
+          {
+            scaleX: scale,
+            scaleY: scale,
+            originX: "left",
+            originY: "top",
+            left: 0,
+            top: 0,
+          }
+        );
       },
       { crossOrigin: "anonymous", noCache: false }
     );
   });
 };
 
-// Uploads and sets a new background image from a File
-export const uploadCanvasBgImage = (fabricCanvas: any, file: File) => {
+export const uploadCanvasBgImage = (
+  fabricCanvas: any,
+  file: File,
+  onComplete?: () => void // Callback
+) => {
   if (!fabricCanvas || !window.fabric) return;
 
   const reader = new FileReader();
@@ -63,19 +80,23 @@ export const uploadCanvasBgImage = (fabricCanvas: any, file: File) => {
       const scaleY = canvasHeight / (fabricImg.height || 1);
       const scale = Math.max(scaleX, scaleY);
 
-      fabricCanvas.setBackgroundImage(fabricImg, fabricCanvas.renderAll.bind(fabricCanvas), {
-        scaleX: scale,
-        scaleY: scale,
-        originX: "left",
-        originY: "top",
-        left: 0,
-        top: 0,
-      });
-      fabricCanvas.renderAll();
+      fabricCanvas.setBackgroundImage(
+        fabricImg,
+        () => {
+          fabricCanvas.renderAll();
+          if (onComplete) onComplete(); // Trigger
+        },
+        {
+          scaleX: scale,
+          scaleY: scale,
+          originX: "left",
+          originY: "top",
+          left: 0,
+          top: 0,
+        }
+      );
     };
-    img.onerror = (error) => console.error("Failed to load uploaded image:", error);
     img.src = dataUrl;
   };
-  reader.onerror = (error) => console.error("Failed to read file:", error);
   reader.readAsDataURL(file);
 };

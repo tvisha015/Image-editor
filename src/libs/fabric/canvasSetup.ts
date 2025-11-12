@@ -11,20 +11,29 @@ export const initFabricCanvas = (
   canvasRef: RefObject<HTMLCanvasElement | null>
 ): any | null => {
   if (!canvasRef.current || !window.fabric) return null;
-  return new window.fabric.Canvas(canvasRef.current);
+  return new window.fabric.Canvas(canvasRef.current, {
+    preserveObjectStacking: true,
+    selection: true,
+  });
 };
 
-// Loads or updates the main image on the canvas
 export const updateMainImage = (
   fabricCanvas: any,
   imageRef: RefObject<any>,
   url: string,
   activeTool: Tool,
-  setImageDimensions: (dims: { width: number; height: number }) => void
+  setImageDimensions: (dims: { width: number; height: number }) => void,
+  onLoadComplete?: () => void
 ) => {
   if (!fabricCanvas || !window.fabric || !url) return;
-  fabricCanvas.clear();
-  imageRef.current = null;
+
+  // --- CHANGE: Don't clear()! Remove previous image explicitly ---
+  // fabricCanvas.clear();
+
+  if (imageRef.current) {
+    fabricCanvas.remove(imageRef.current);
+    imageRef.current = null;
+  }
 
   window.fabric.Image.fromURL(
     url,
@@ -43,16 +52,22 @@ export const updateMainImage = (
 
       fabricCanvas.setWidth(scaledWidth);
       fabricCanvas.setHeight(scaledHeight);
+
       img.set({
         selectable: activeTool === "cursor",
         evented: activeTool === "cursor",
         crossOrigin: "anonymous",
+        id: "main-image", // Tag the object
       });
 
       imageRef.current = img;
-      fabricCanvas.add(img);
+      // Insert at the bottom stack so text/design stays on top
+      fabricCanvas.insertAt(img, 0, true);
+
       fabricCanvas.centerObject(img);
       fabricCanvas.renderAll();
+
+      if (onLoadComplete) onLoadComplete();
     },
     { crossOrigin: "anonymous" }
   );

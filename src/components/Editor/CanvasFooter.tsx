@@ -35,30 +35,40 @@ const RedoIcon = () => (
 
 interface CanvasFooterProps {
   onDownload: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
-const CanvasFooter: React.FC<CanvasFooterProps> = ({ onDownload }) => {
+const CanvasFooter: React.FC<CanvasFooterProps> = ({ 
+  onDownload, 
+  onUndo, 
+  onRedo, 
+  canUndo, 
+  canRedo 
+}) => {
   return (
     <footer className="w-full h-16 bg-white flex items-center justify-between px-6 border-t border-gray-200 flex-shrink-0">
-      {/* Left Side: Undo/Redo */}
       <div className="flex items-center gap-2">
         <button
-          title="Undo (Not Implemented)"
-          className="p-2 rounded-md text-gray-400 cursor-not-allowed"
-          disabled
+          title="Undo"
+          onClick={onUndo}
+          disabled={!canUndo}
+          className={`p-2 rounded-md ${!canUndo ? "text-gray-300 cursor-not-allowed" : "text-gray-700 hover:bg-gray-100"}`}
         >
           <UndoIcon />
         </button>
         <button
-          title="Redo (Not Implemented)"
-          className="p-2 rounded-md text-gray-400 cursor-not-allowed"
-          disabled
+          title="Redo"
+          onClick={onRedo}
+          disabled={!canRedo}
+          className={`p-2 rounded-md ${!canRedo ? "text-gray-300 cursor-not-allowed" : "text-gray-700 hover:bg-gray-100"}`}
         >
           <RedoIcon />
         </button>
       </div>
 
-      {/* Right Side: Download Button */}
       <button
         onClick={onDownload}
         className="font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors px-6 py-2.5 rounded-lg shadow-sm"

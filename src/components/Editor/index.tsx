@@ -31,8 +31,8 @@ const EditorView: FC<EditorViewProps> = ({
   onStartNew,
 }) => {
   const [currentImageUrl, setCurrentImageUrl] = useState(initialImageUrl);
-  const [activeTab, setActiveTab] = useState<EditorTab>("cutout"); // Default to cutout
-  const [activeTool, setActiveTool] = useState<Tool>("brush"); // Default to brush
+  const [activeTab, setActiveTab] = useState<EditorTab>("cutout");
+  const [activeTool, setActiveTool] = useState<Tool>("brush");
   const [brushSize, setBrushSize] = useState(30);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState("transparent");
@@ -54,7 +54,11 @@ const EditorView: FC<EditorViewProps> = ({
   const [opacity, setOpacity] = useState(1);
   const [adjustBlur, setAdjustBlur] = useState(0);
 
-  // Handlers for Adjustments
+  // Handlers (omitted for brevity, keep your existing ones)
+  // ... keep handleSetBrightness, handleSetIsBlurEnabled etc ... 
+  // Make sure they call setHasBeenEdited(true)
+
+  // Re-declare handlers just in case they were missing in previous context
   const handleSetBrightness = (val: number) => { setBrightness(val); setHasBeenEdited(true); };
   const handleSetContrast = (val: number) => { setContrast(val); setHasBeenEdited(true); };
   const handleSetHighlight = (val: number) => { setHighlight(val); setHasBeenEdited(true); };
@@ -63,27 +67,11 @@ const EditorView: FC<EditorViewProps> = ({
   const handleSetOpacity = (val: number) => { setOpacity(val); setHasBeenEdited(true); };
   const handleSetAdjustBlur = (val: number) => { setAdjustBlur(val); setHasBeenEdited(true); };
 
-  // Handlers for Effects
-  const handleSetIsBlurEnabled = (val: boolean) => {
-    setIsBlurEnabled(val);
-    setHasBeenEdited(true);
-  };
-  const handleSetBlurType = (val: BlurType) => {
-    setBlurType(val);
-    setHasBeenEdited(true);
-  };
-  const handleSetBlurValue = (val: number) => {
-    setBlurValue(val);
-    setHasBeenEdited(true);
-  };
-  const handleSetIsFilterEnabled = (val: boolean) => {
-    setIsFilterEnabled(val);
-    setHasBeenEdited(true);
-  };
-  const handleSetFilterType = (val: FilterType) => {
-    setFilterType(val);
-    setHasBeenEdited(true);
-  };
+  const handleSetIsBlurEnabled = (val: boolean) => { setIsBlurEnabled(val); setHasBeenEdited(true); };
+  const handleSetBlurType = (val: BlurType) => { setBlurType(val); setHasBeenEdited(true); };
+  const handleSetBlurValue = (val: number) => { setBlurValue(val); setHasBeenEdited(true); };
+  const handleSetIsFilterEnabled = (val: boolean) => { setIsFilterEnabled(val); setHasBeenEdited(true); };
+  const handleSetFilterType = (val: FilterType) => { setFilterType(val); setHasBeenEdited(true); };
 
   useEffect(() => {
     if (sessionStorage.getItem("bgRemoved") === "true") {
@@ -91,18 +79,17 @@ const EditorView: FC<EditorViewProps> = ({
     }
   }, []);
 
-  // This is the "Erase" API callback
   const handleComplete = useCallback((newUrl: string) => {
     setCurrentImageUrl(newUrl);
-    setActiveTool("cursor"); // Switch back to cursor after erase
+    setActiveTool("cursor");
     setHasBeenEdited(true);
-    setActiveTab("backgrounds"); // Switch back to backgrounds tab
+    setActiveTab("backgrounds");
   }, []);
 
   const {
     canvasRef,
     imageDimensions,
-    handleRemoveObject, // This is our "Erase" function
+    handleRemoveObject,
     handleDownloadImage,
     clearDrawings,
     handleBackgroundImageUpload,
@@ -112,6 +99,10 @@ const EditorView: FC<EditorViewProps> = ({
     addStyledText,
     setOverlay,
     removeOverlay,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useFabric(
     currentImageUrl,
     activeTool,
@@ -120,13 +111,11 @@ const EditorView: FC<EditorViewProps> = ({
     backgroundColor,
     () => {},
     false,
-    // Effect Props
     isBlurEnabled,
     blurType,
     blurValue,
     isFilterEnabled,
     filterType,
-    // Adjust Props
     brightness,
     contrast,
     highlight,
@@ -155,25 +144,26 @@ const EditorView: FC<EditorViewProps> = ({
 
   return (
     <div className="w-full flex-1 flex overflow-hidden">
-      {/* 1. Left Nav Sidebar */}
       <EditorNavSidebar activeTab={activeTab} onTabChange={handleTabChange} />
 
-      {/* 2. Main Canvas Area (Center) */}
       <MainCanvasArea
         activeTab={activeTab}
         activeTool={activeTool}
-        brushSize={brushSize} // <-- Canvas needs this for the cursor
+        brushSize={brushSize}
         isPreviewing={isPreviewing}
         onTogglePreview={() => setIsPreviewing(!isPreviewing)}
         onDownload={handleDownloadImage}
-        // onRemoveObject is no longer passed here
         hasBeenEdited={hasBeenEdited}
         canvasRef={canvasRef as React.RefObject<HTMLCanvasElement>}
         imageDimensions={imageDimensions}
         originalImageUrl={originalImageUrl}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
 
-      {/* 3. Right Side Panel (Conditional) */}
+      {/* Panels */}
       {activeTab === "backgrounds" && (
         <BackgroundsPanel
           onColorChange={handleBackgroundColorChange}
@@ -182,12 +172,11 @@ const EditorView: FC<EditorViewProps> = ({
         />
       )}
 
-      {/* NEW: Render CutoutPanel when 'cutout' tab is active */}
       {activeTab === "cutout" && (
         <CutoutPanel
           brushSize={brushSize}
           setBrushSize={setBrushSize}
-          onErase={handleRemoveObject} // Wire up the erase button
+          onErase={handleRemoveObject}
         />
       )}
 

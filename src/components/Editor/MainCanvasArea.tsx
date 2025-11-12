@@ -8,45 +8,49 @@ import CanvasFooter from "./CanvasFooter";
 import { Tool } from "@/types/editor";
 
 interface MainCanvasAreaProps {
-  // State
   activeTab: EditorTab;
   activeTool: Tool;
-  brushSize: number; // <-- Keep for EditorCanvas cursor
+  brushSize: number;
   isPreviewing: boolean;
   hasBeenEdited: boolean;
-  // Handlers
   onTogglePreview: () => void;
   onDownload: () => void;
-  // Canvas Props
   canvasRef: React.RefObject<HTMLCanvasElement>;
   imageDimensions: { width: number; height: number };
   originalImageUrl: string;
+  // Undo/Redo
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 const MainCanvasArea: React.FC<MainCanvasAreaProps> = (props) => {
   return (
     <main className="flex-1 flex flex-col bg-gray-100 overflow-hidden">
-      {/* 1. Top Controls (Before/After, Colors, etc.) */}
       <CanvasControls
         activeTab={props.activeTab}
         isPreviewing={props.isPreviewing}
         onTogglePreview={props.onTogglePreview}
         hasBeenEdited={props.hasBeenEdited}
-        // Brush and RemoveObject props are all removed
       />
 
-      {/* 2. Main Canvas */}
       <EditorCanvas
         canvasRef={props.canvasRef}
         imageDimensions={props.imageDimensions}
         activeTool={props.activeTool}
-        brushSize={props.brushSize} // <-- Pass brushSize for cursor
+        brushSize={props.brushSize}
         isPreviewing={props.isPreviewing}
         originalImageUrl={props.originalImageUrl}
       />
 
-      {/* 3. Bottom Controls (Undo, Redo, Download) */}
-      <CanvasFooter onDownload={props.onDownload} />
+      <CanvasFooter
+        onDownload={props.onDownload}
+        onUndo={props.onUndo}
+        onRedo={props.onRedo}
+        canUndo={props.canUndo}
+        canRedo={props.canRedo}
+      />
     </main>
   );
 };

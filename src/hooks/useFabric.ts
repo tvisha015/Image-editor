@@ -4,7 +4,10 @@ import { useRef, useEffect, useState, useCallback, RefObject } from "react";
 import { Tool, BlurType, FilterType } from "../types/editor";
 
 import { initFabricCanvas, updateMainImage } from "@/libs/fabric/canvasSetup";
-import { clearCanvasDrawings, useFabricBrush } from "@/libs/fabric/drawingActions";
+import {
+  clearCanvasDrawings,
+  useFabricBrush,
+} from "@/libs/fabric/drawingActions";
 import { useFabricZoom } from "@/libs/fabric/interactionEffects";
 import {
   clearCanvasBgImage,
@@ -12,9 +15,11 @@ import {
   setCanvasColor,
   uploadCanvasBgImage,
 } from "@/libs/fabric/backgroundActions";
-import { exportCanvasImage, removeObjectApiCall } from "@/libs/fabric/apiActions";
+import {
+  exportCanvasImage,
+  removeObjectApiCall,
+} from "@/libs/fabric/apiActions";
 
-// We're parking the hexagon filter for now
 // import "@/libs/fabric/customFilters";
 
 export const useFabric = (
@@ -38,7 +43,7 @@ export const useFabric = (
   sharpen: number,
   shadow: number,
   opacity: number,
-  adjustBlur: number,
+  adjustBlur: number
 ) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fabricCanvasRef = useRef<any | null>(null);
@@ -48,13 +53,83 @@ export const useFabric = (
     height: 0,
   });
 
+  // --- HISTORY STATE ---
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isHistoryLocked = useRef(false);
+  const saveTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // --- MAIN SAVE FUNCTION ---
+  const saveState = useCallback(() => {
+    if (isHistoryLocked.current) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+
+    saveTimeout.current = setTimeout(() => {
+      if (isHistoryLocked.current) return;
+
+      try {
+        // We use a minimal set of properties to keep it light, but include ID to find main image
+        const json = JSON.stringify(
+          canvas.toJSON([
+            "selectable",
+            "evented",
+            "id",
+            "lockMovementX",
+            "lockMovementY",
+          ])
+        );
+
+        setHistory((prev) => {
+          // If current state is identical to last saved state, skip
+          if (prev.length > 0 && prev[historyIndex] === json) return prev;
+
+          const newHistory = prev.slice(0, historyIndex + 1);
+          newHistory.push(json);
+          return newHistory;
+        });
+
+        setHistoryIndex((prev) => {
+          // Ensure index aligns with the new history length
+          // (Simple increment works because we just sliced+pushed)
+          return prev + 1;
+        });
+      } catch (e) {
+        console.error("Failed to save state", e);
+      }
+    }, 500); // 500ms debounce
+  }, [historyIndex]);
+
   // 1. Initialize Canvas
   useEffect(() => {
     const canvas = initFabricCanvas(canvasRef);
     fabricCanvasRef.current = canvas;
+
+    const handleCanvasChange = () => {
+      if (isHistoryLocked.current) return;
+      saveState();
+    };
+
+    canvas.on("object:modified", handleCanvasChange);
+    canvas.on("object:added", (e: any) => {
+      // Ignore initial load
+      if (e.target && e.target.id === "main-image" && historyIndex === -1)
+        return;
+      handleCanvasChange();
+    });
+    canvas.on("object:removed", handleCanvasChange);
+    canvas.on("path:created", handleCanvasChange);
+
     return () => {
+      canvas.off("object:modified", handleCanvasChange);
+      canvas.off("object:added", handleCanvasChange);
+      canvas.off("object:removed", handleCanvasChange);
+      canvas.off("path:created", handleCanvasChange);
       fabricCanvasRef.current?.dispose();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 2. Load Main Image
@@ -64,101 +139,184 @@ export const useFabric = (
       imageRef as RefObject<any>,
       imageUrl,
       activeTool,
-      setImageDimensions
+      setImageDimensions,
+      () => {
+        // Initial Save on fresh load
+        if (historyIndex === -1) {
+          isHistoryLocked.current = false;
+          saveState();
+        }
+      }
     );
-  }, [imageUrl, activeTool]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageUrl]);
 
-  // 3. Setup Brush Effect
+  // Tool Selectability
+  useEffect(() => {
+    const image = imageRef.current;
+    if (image) {
+      image.set({
+        selectable: activeTool === "cursor",
+        evented: activeTool === "cursor",
+      });
+      fabricCanvasRef.current?.renderAll();
+    }
+  }, [activeTool]);
+
+  // 3. Setup Brush
   useFabricBrush(fabricCanvasRef, activeTool, brushSize);
 
-  // 4. Setup Zoom Effect
+  // 4. Setup Zoom
   useFabricZoom(fabricCanvasRef, activeTool, isBgPanelOpen);
 
-  // Handle Delete Key for Object Removal
+  // 5. Delete Key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const canvas = fabricCanvasRef.current;
       if (!canvas) return;
-
-      // Check for Delete or Backspace keys
       if (e.key === "Delete" || e.key === "Backspace") {
-        
-        // Prevent deletion if the user is typing in an input field (like a slider or text box)
         const target = e.target as HTMLElement;
-        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
-          return;
-        }
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
 
         const activeObjects = canvas.getActiveObjects();
-        
         if (activeObjects.length) {
-          // Check if the active object is currently being edited (e.g., text editing)
           const isEditing = activeObjects.some((obj: any) => obj.isEditing);
-          
           if (!isEditing) {
-            activeObjects.forEach((obj: any) => {
-              canvas.remove(obj);
-            });
+            activeObjects.forEach((obj: any) => canvas.remove(obj));
             canvas.discardActiveObject();
             canvas.renderAll();
+            saveState();
           }
         }
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
-    
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [saveState]);
 
-  // --- 5. Apply All Filters & Properties (Logic Corrected) ---
-  useEffect(() => {
+  // --- UNDO FUNCTION ---
+  const undo = useCallback(() => {
     const canvas = fabricCanvasRef.current;
-    const image = imageRef.current;
-    if (!canvas || !image || !window.fabric || !window.fabric.Image.filters) {
+    if (!canvas || historyIndex <= 0) return;
+
+    // 1. Lock History
+    isHistoryLocked.current = true;
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+
+    const prevIndex = historyIndex - 1;
+    const prevState = history[prevIndex];
+
+    console.log("Undoing...");
+
+    // 2. Parse JSON safely
+    let json;
+    try {
+      json = JSON.parse(prevState);
+    } catch (e) {
+      console.error("Invalid history state", e);
+      isHistoryLocked.current = false;
       return;
     }
 
+    // 3. Load
+    canvas.loadFromJSON(json, () => {
+      // This callback runs AFTER objects are created
+      canvas.renderAll();
+
+      // Rebind main image
+      const objects = canvas.getObjects();
+      const mainImg = objects.find((obj: any) => obj.id === "main-image");
+      if (mainImg) imageRef.current = mainImg;
+
+      setHistoryIndex(prevIndex);
+
+      // Delay unlock slightly to let Fabric finish rendering filters
+      setTimeout(() => {
+        isHistoryLocked.current = false;
+      }, 100);
+    });
+  }, [history, historyIndex]);
+
+  // --- REDO FUNCTION ---
+  const redo = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || historyIndex >= history.length - 1) return;
+
+    isHistoryLocked.current = true;
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+
+    const nextIndex = historyIndex + 1;
+    const nextState = history[nextIndex];
+
+    console.log("Redoing...");
+
+    let json;
+    try {
+      json = JSON.parse(nextState);
+    } catch (e) {
+      console.error("Invalid history state", e);
+      isHistoryLocked.current = false;
+      return;
+    }
+
+    canvas.loadFromJSON(json, () => {
+      canvas.renderAll();
+
+      const objects = canvas.getObjects();
+      const mainImg = objects.find((obj: any) => obj.id === "main-image");
+      if (mainImg) imageRef.current = mainImg;
+
+      setHistoryIndex(nextIndex);
+
+      setTimeout(() => {
+        isHistoryLocked.current = false;
+      }, 100);
+    });
+  }, [history, historyIndex]);
+
+  // 6. Apply Filters
+  useEffect(() => {
+    // If we are currently undoing/redoing (locked), DO NOT apply filters.
+    // This prevents the "width of undefined" error because the image isn't ready yet.
+    if (isHistoryLocked.current) return;
+
+    const canvas = fabricCanvasRef.current;
+    const image = imageRef.current;
+    if (!canvas || !image || !window.fabric || !window.fabric.Image.filters)
+      return;
+
     const newFilters: any[] = [];
 
-    // --- A. APPLY ADJUSTMENTS ---
-    if (brightness !== 0) {
-      newFilters.push(new window.fabric.Image.filters.Brightness({ brightness }));
-    }
-    if (contrast !== 0) {
+    // Adjustments
+    if (brightness !== 0)
+      newFilters.push(
+        new window.fabric.Image.filters.Brightness({ brightness })
+      );
+    if (contrast !== 0)
       newFilters.push(new window.fabric.Image.filters.Contrast({ contrast }));
-    }
-
     const gammaValue = 1.0 + highlight;
-    if (highlight > 0) {
-      newFilters.push(new window.fabric.Image.filters.Gamma({
-        gamma: [gammaValue, gammaValue, gammaValue]
-      }));
-    }
-
-    // --- FIX 1: Moved sharpen logic out of shadow block ---
+    if (highlight > 0)
+      newFilters.push(
+        new window.fabric.Image.filters.Gamma({
+          gamma: [gammaValue, gammaValue, gammaValue],
+        })
+      );
     if (sharpen > 0) {
       const s = sharpen * 1.5;
-      newFilters.push(new window.fabric.Image.filters.Convolute({
-        matrix: [
-           0,   -s,    0,
-          -s,  1 + 4*s,  -s,
-           0,   -s,    0
-        ]
-      }));
+      newFilters.push(
+        new window.fabric.Image.filters.Convolute({
+          matrix: [0, -s, 0, -s, 1 + 4 * s, -s, 0, -s, 0],
+        })
+      );
     }
-    
-    // --- FIX 2: Add logic for the Adjust panel's blur ---
-    if (adjustBlur > 0) {
-       newFilters.push(new window.fabric.Image.filters.Blur({ blur: adjustBlur }));
-    }
+    if (adjustBlur > 0)
+      newFilters.push(
+        new window.fabric.Image.filters.Blur({ blur: adjustBlur })
+      );
 
-    // --- B. APPLY "EFFECT" TAB BLUR ---
+    // Effects
     if (isBlurEnabled) {
       const blurIntensity = effectBlurValue / 100;
-
       switch (blurType) {
         case "gaussian":
           newFilters.push(
@@ -166,25 +324,11 @@ export const useFabric = (
           );
           break;
         case "pixelate":
-          // Use the custom Hexagonal filter
-          if (window.fabric.Image.filters.HexagonalPixelate) {
-            const hexBlockSize = Math.max(2, Math.round((effectBlurValue / 100) * 16));
-            newFilters.push(
-              new window.fabric.Image.filters.HexagonalPixelate({
-                blocksize: hexBlockSize,
-              })
-            );
-          } else {
-            console.warn("HexagonalPixelate filter failed to load. Falling back to square.");
-            const fallbackBlockSize = Math.max(2, Math.round((effectBlurValue / 100) * 20));
-            newFilters.push(
-              new window.fabric.Image.filters.Pixelate({ blocksize: fallbackBlockSize })
-            );
-          }
-          break;
-
         case "square":
-          const blockSize = Math.max(2, Math.round((effectBlurValue / 100) * 20));
+          const blockSize = Math.max(
+            2,
+            Math.round((effectBlurValue / 100) * 20)
+          );
           newFilters.push(
             new window.fabric.Image.filters.Pixelate({ blocksize: blockSize })
           );
@@ -193,20 +337,10 @@ export const useFabric = (
           let matrixSize = 3;
           if (effectBlurValue > 33) matrixSize = 5;
           if (effectBlurValue > 66) matrixSize = 7;
-          
-          let motionMatrix = [];
           const val = 1 / matrixSize;
-          if (matrixSize === 3) {
-            motionMatrix = [0, 0, 0, val, val, val, 0, 0, 0];
-          } else if (matrixSize === 5) {
-            motionMatrix = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, val, val, val, val, val, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-          } else {
-            motionMatrix = [
-              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-              val, val, val, val, val, val, val,
-              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-            ];
-          }
+          const motionMatrix = new Array(matrixSize * matrixSize).fill(0);
+          for (let i = 0; i < matrixSize; i++)
+            motionMatrix[Math.floor(matrixSize / 2) * matrixSize + i] = val;
           newFilters.push(
             new window.fabric.Image.filters.Convolute({ matrix: motionMatrix })
           );
@@ -214,12 +348,13 @@ export const useFabric = (
       }
     }
 
-    // --- C. APPLY "EFFECT" TAB FILTERS ---
     if (isFilterEnabled) {
       switch (filterType) {
         case "noir":
           newFilters.push(new window.fabric.Image.filters.Grayscale());
-          newFilters.push(new window.fabric.Image.filters.Contrast({ contrast: 0.2 }));
+          newFilters.push(
+            new window.fabric.Image.filters.Contrast({ contrast: 0.2 })
+          );
           break;
         case "sepia":
           newFilters.push(new window.fabric.Image.filters.Sepia());
@@ -228,43 +363,61 @@ export const useFabric = (
           newFilters.push(new window.fabric.Image.filters.Grayscale());
           break;
         case "fade":
-          newFilters.push(new window.fabric.Image.filters.Saturation({ saturation: -0.3 }));
-          newFilters.push(new window.fabric.Image.filters.Brightness({ brightness: 0.1 }));
+          newFilters.push(
+            new window.fabric.Image.filters.Saturation({ saturation: -0.3 })
+          );
+          newFilters.push(
+            new window.fabric.Image.filters.Brightness({ brightness: 0.1 })
+          );
           break;
         case "process":
-          newFilters.push(new window.fabric.Image.filters.ColorMatrix({
-            matrix: [ 1.0, 0.2, 0.0, 0, 0.05, 0.0, 1.0, 0.0, 0, 0.05, 0.2, 0.0, 1.0, 0, 0.05, 0, 0, 0, 1, 0]
-          }));
+          newFilters.push(
+            new window.fabric.Image.filters.ColorMatrix({
+              matrix: [
+                1.0, 0.2, 0.0, 0, 0.05, 0.0, 1.0, 0.0, 0, 0.05, 0.2, 0.0, 1.0,
+                0, 0.05, 0, 0, 0, 1, 0,
+              ],
+            })
+          );
           break;
         case "tonal":
-          newFilters.push(new window.fabric.Image.filters.ColorMatrix({
-            matrix: [ 0.7, 0, 0, 0, 0.1, 0, 1.0, 0, 0, 0, 0, 0, 1.3, 0, 0.1, 0, 0, 0, 1, 0]
-          }));
+          newFilters.push(
+            new window.fabric.Image.filters.ColorMatrix({
+              matrix: [
+                0.7, 0, 0, 0, 0.1, 0, 1.0, 0, 0, 0, 0, 0, 1.3, 0, 0.1, 0, 0, 0,
+                1, 0,
+              ],
+            })
+          );
           break;
       }
     }
 
-    // --- D. APPLY OBJECT PROPERTIES (NOT FILTERS) ---
-    image.set('opacity', opacity);
-
+    // Properties
+    image.set("opacity", opacity);
     if (shadow > 0) {
-      image.set('shadow', new window.fabric.Shadow({
-        color: 'rgba(0, 0, 0, 0.7)',
-        blur: shadow * 20, // Map 0-1 to 0-20 blur radius
-        offsetX: shadow * 5, // Map 0-1 to 0-5 offset
-        offsetY: shadow * 5
-      }));
+      image.set(
+        "shadow",
+        new window.fabric.Shadow({
+          color: "rgba(0,0,0,0.7)",
+          blur: shadow * 20,
+          offsetX: shadow * 5,
+          offsetY: shadow * 5,
+        })
+      );
     } else {
-      image.set('shadow', null);
+      image.set("shadow", null);
     }
 
-    // --- E. APPLY ALL FILTERS AND RENDER ---
-    image.filters = newFilters;
-    image.applyFilters();
-    canvas.renderAll();
-
+    // IMPORTANT: Only apply filters if we are NOT currently locked (undoing/redoing)
+    if (!isHistoryLocked.current) {
+      image.filters = newFilters;
+      image.applyFilters();
+      canvas.renderAll();
+      saveState();
+    }
   }, [
-    isBlurEnabled, 
+    isBlurEnabled,
     blurType,
     effectBlurValue,
     isFilterEnabled,
@@ -275,30 +428,37 @@ export const useFabric = (
     sharpen,
     shadow,
     opacity,
-    adjustBlur
+    adjustBlur,
+    saveState, // Added saveState dependency
   ]);
 
-  // 6. Wrap Actions in useCallback
-  const setBackgroundColor = useCallback((color: string) => {
-    setCanvasColor(fabricCanvasRef.current, color);
-  }, []);
-
-  const handleBackgroundImageUpload = useCallback((file: File) => {
-    uploadCanvasBgImage(fabricCanvasRef.current, file);
-  }, []);
-
+  // Actions
+  const setBackgroundColor = useCallback(
+    (color: string) => {
+      setCanvasColor(fabricCanvasRef.current, color);
+      saveState();
+    },
+    [saveState]
+  );
+  const handleBackgroundImageUpload = useCallback(
+    (file: File) => {
+      uploadCanvasBgImage(fabricCanvasRef.current, file, saveState);
+    },
+    [saveState]
+  );
   const clearBackgroundImage = useCallback(() => {
     clearCanvasBgImage(fabricCanvasRef.current);
-  }, []);
-
-  const setBackgroundImageFromUrl = useCallback((imageUrl: string) => {
-    setCanvasBgImageFromUrl(fabricCanvasRef.current, imageUrl);
-  }, []);
-
+    saveState();
+  }, [saveState]);
+  const setBackgroundImageFromUrl = useCallback(
+    (imageUrl: string) => {
+      setCanvasBgImageFromUrl(fabricCanvasRef.current, imageUrl, saveState);
+    },
+    [saveState]
+  );
   const handleDownloadImage = useCallback(() => {
     exportCanvasImage(fabricCanvasRef.current);
   }, []);
-
   const handleRemoveObject = useCallback(async () => {
     await removeObjectApiCall(
       fabricCanvasRef.current,
@@ -306,82 +466,62 @@ export const useFabric = (
       onComplete
     );
   }, [onComplete]);
-
   const clearDrawings = useCallback(() => {
     clearCanvasDrawings(fabricCanvasRef.current);
-  }, []);
+    saveState();
+  }, [saveState]);
 
-  // --- 6. NEW FUNCTION: Add SVG Text Design ---
-  // const addSvgText = useCallback((url: string) => {
-  //   const canvas = fabricCanvasRef.current;
-  //   if (!canvas || !window.fabric) return;
-
-  //   window.fabric.loadSVGFromURL(url, (objects: any[], options: any) => {
-  //     if (!objects || objects.length === 0) return;
-
-  //     // Group the SVG elements so they move together
-  //     const svgGroup = window.fabric.util.groupSVGElements(objects, options);
-      
-  //     // Center and scale reasonably
-  //     svgGroup.scaleToWidth(canvas.getWidth() * 0.5); 
-      
-  //     canvas.add(svgGroup);
-  //     canvas.setActiveObject(svgGroup);
-  //     canvas.centerObject(svgGroup);
-  //     canvas.renderAll();
-  //   });
-  // }, []);
   const addStyledText = useCallback((text: string, style: any) => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || !window.fabric) return;
-
-    // Create the Shadow object if the style has one
     let shadowObj = null;
-    if (style.shadow) {
-      shadowObj = new window.fabric.Shadow(style.shadow);
-    }
-
+    if (style.shadow) shadowObj = new window.fabric.Shadow(style.shadow);
     const textObj = new window.fabric.IText(text, {
       left: canvas.getWidth() / 2,
       top: canvas.getHeight() / 2,
-      originX: 'center',
-      originY: 'center',
-      ...style, // Apply all simple properties (fill, font, etc.)
-      shadow: shadowObj, // Apply the shadow object
+      originX: "center",
+      originY: "center",
+      ...style,
+      shadow: shadowObj,
     });
-
     canvas.add(textObj);
     canvas.setActiveObject(textObj);
     canvas.renderAll();
   }, []);
 
-  // --- 7. NEW FUNCTION: Set Template Overlay ---
-  const setOverlay = useCallback((imageUrl: string) => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas || !window.fabric) return;
-
-    window.fabric.Image.fromURL(imageUrl, (img: any) => {
-       // Scale the overlay to cover the canvas exactly
-       img.scaleToWidth(canvas.getWidth());
-       img.scaleToHeight(canvas.getHeight());
-
-       canvas.setOverlayImage(img, canvas.renderAll.bind(canvas), {
-         originX: 'left',
-         originY: 'top',
-         crossOrigin: 'anonymous'
-       });
-    }, { crossOrigin: 'anonymous' });
-  }, []);
+  const setOverlay = useCallback(
+    (imageUrl: string) => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas || !window.fabric) return;
+      window.fabric.Image.fromURL(
+        imageUrl,
+        (img: any) => {
+          img.scaleToWidth(canvas.getWidth());
+          img.scaleToHeight(canvas.getHeight());
+          canvas.setOverlayImage(
+            img,
+            () => {
+              canvas.renderAll();
+              saveState();
+            },
+            { originX: "left", originY: "top", crossOrigin: "anonymous" }
+          );
+        },
+        { crossOrigin: "anonymous" }
+      );
+    },
+    [saveState]
+  );
 
   const removeOverlay = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || !window.fabric) return;
+    canvas.setOverlayImage(null, () => {
+      canvas.renderAll();
+      saveState();
+    });
+  }, [saveState]);
 
-    // Setting it to null removes it
-    canvas.setOverlayImage(null, canvas.renderAll.bind(canvas));
-  }, []);
-
-  // Return the same interface as before
   return {
     canvasRef,
     imageDimensions,
@@ -395,5 +535,9 @@ export const useFabric = (
     addStyledText,
     setOverlay,
     removeOverlay,
+    undo,
+    redo,
+    canUndo: historyIndex > 0,
+    canRedo: historyIndex < history.length - 1,
   };
 };
