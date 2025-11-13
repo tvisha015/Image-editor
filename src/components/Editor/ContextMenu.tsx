@@ -1,4 +1,3 @@
-// src/components/Editor/ContextMenu.tsx
 "use client";
 
 import React, { FC, useState } from "react";
@@ -49,8 +48,12 @@ const ContextMenu: FC<ContextMenuProps> = ({
 
   return (
     <>
-      {/* Invisible backdrop to close menu when clicking outside */}
-      <div className="fixed inset-0 z-40" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }} />
+      {/* Overlay */}
+      <div 
+        className="fixed inset-0 z-40" 
+        onClick={onClose} 
+        onContextMenu={(e) => e.preventDefault()} 
+      />
 
       <div
         className="absolute z-50 bg-white rounded-lg shadow-xl border border-gray-100 py-1 w-48 text-sm text-gray-700 animate-in fade-in zoom-in-95 duration-100"
