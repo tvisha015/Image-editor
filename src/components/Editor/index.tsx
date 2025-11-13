@@ -103,6 +103,11 @@ const EditorView: FC<EditorViewProps> = ({
     redo,
     canUndo,
     canRedo,
+    activeObject,
+    bringForward,
+    sendBackward,
+    bringToFront,
+    sendToBack,
   } = useFabric(
     currentImageUrl,
     activeTool,
@@ -161,6 +166,11 @@ const EditorView: FC<EditorViewProps> = ({
         onRedo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
+        activeObject={activeObject}
+        onBringForward={bringForward}
+        onSendBackward={sendBackward}
+        onBringToFront={bringToFront}
+        onSendToBack={sendToBack}
       />
 
       {/* Panels */}

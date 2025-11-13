@@ -1,6 +1,13 @@
 "use client";
 
-import React, { FC, RefObject, useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  FC,
+  RefObject,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { Tool } from "../../types/editor";
 
 const checkerboardPattern = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23ffffff'/%3E%3Crect width='8' height='8' fill='%23e2e8f0'/%3E%3Crect x='8' y='8' width='8' height='8' fill='%23e2e8f0'/%3E%3C/svg%3E`;
@@ -37,21 +44,24 @@ const PreviewSlider: FC<PreviewSliderProps> = ({
     }
   }, []);
 
-  const handleInteractionStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    isDragging.current = true;
-    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+  const handleInteractionStart = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      e.preventDefault();
+      isDragging.current = true;
+      const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
 
-    // This logic allows clicking anywhere to move the slider
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      let x = clientX - rect.left;
-      let percentage = (x / rect.width) * 100;
-      if (percentage < 0) percentage = 0;
-      if (percentage > 100) percentage = 100;
-      setSliderPosition(percentage);
-    }
-  }, []);
+      // This logic allows clicking anywhere to move the slider
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        let x = clientX - rect.left;
+        let percentage = (x / rect.width) * 100;
+        if (percentage < 0) percentage = 0;
+        if (percentage > 100) percentage = 100;
+        setSliderPosition(percentage);
+      }
+    },
+    []
+  );
 
   const handleInteractionEnd = useCallback(() => {
     isDragging.current = false;
@@ -209,20 +219,35 @@ const EditorCanvas: FC<{
     };
     const handleMouseEnter = () => setIsMouseOverCanvas(true);
     const handleMouseLeave = () => setIsMouseOverCanvas(false);
-    canvasContainer?.addEventListener("mousemove", handleMouseMove as EventListener);
+    canvasContainer?.addEventListener(
+      "mousemove",
+      handleMouseMove as EventListener
+    );
     canvasContainer?.addEventListener("mouseenter", handleMouseEnter);
     canvasContainer?.addEventListener("mouseleave", handleMouseLeave);
     return () => {
-      canvasContainer?.removeEventListener("mousemove", handleMouseMove as EventListener);
+      canvasContainer?.removeEventListener(
+        "mousemove",
+        handleMouseMove as EventListener
+      );
       canvasContainer?.removeEventListener("mouseenter", handleMouseEnter);
       canvasContainer?.removeEventListener("mouseleave", handleMouseLeave);
     };
   }, [isPreviewing]);
 
+  // --- Disable Context Menu Handler ---
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault(); // This stops the browser menu
+    return false;
+  };
+
   return (
     // Updated background to bg-gray-100 (from Figma)
     <div className="flex-1 p-6 flex items-center justify-center bg-gray-100 overflow-auto">
-      <div className="relative flex items-center justify-center w-full h-full">
+      <div
+        className="relative flex items-center justify-center w-full h-full"
+        onContextMenu={handleContextMenu}
+      >
         {/* The underlying Fabric.js canvas and its background */}
         <div
           className="canvas-container"
@@ -236,6 +261,7 @@ const EditorCanvas: FC<{
             // Add a subtle border/shadow to define the canvas area
             boxShadow: "0 0 10px rgba(0,0,0,0.1)",
           }}
+          onContextMenu={handleContextMenu}
         >
           <div
             className="absolute top-0 left-0"
@@ -249,20 +275,18 @@ const EditorCanvas: FC<{
           ></div>
           {/* Apply rounded corners to the canvas element itself */}
           <canvas ref={canvasRef} style={{ borderRadius: "8px" }} />
-          
-          {activeTool === "brush" &&
-            isMouseOverCanvas &&
-            brushSize > 0 && (
-              <div
-                className="absolute pointer-events-none border-2 border-slate-900/80 rounded-full"
-                style={{
-                  left: `${mousePosition.x - brushSize / 2}px`,
-                  top: `${mousePosition.y - brushSize / 2}px`,
-                  width: `${brushSize}px`,
-                  height: `${brushSize}px`,
-                }}
-              />
-            )}
+
+          {activeTool === "brush" && isMouseOverCanvas && brushSize > 0 && (
+            <div
+              className="absolute pointer-events-none border-2 border-slate-900/80 rounded-full"
+              style={{
+                left: `${mousePosition.x - brushSize / 2}px`,
+                top: `${mousePosition.y - brushSize / 2}px`,
+                width: `${brushSize}px`,
+                height: `${brushSize}px`,
+              }}
+            />
+          )}
         </div>
 
         {/* The Preview Slider Overlay */}

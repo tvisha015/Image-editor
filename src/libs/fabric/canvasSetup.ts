@@ -14,6 +14,8 @@ export const initFabricCanvas = (
   return new window.fabric.Canvas(canvasRef.current, {
     preserveObjectStacking: true,
     selection: true,
+    fireRightClick: true,  // Enable right-click events in Fabric
+    stopContextMenu: true, // Disable the default browser right-click menu
   });
 };
 

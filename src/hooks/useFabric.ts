@@ -51,6 +51,9 @@ export const useFabric = (
   const isHistoryLocked = useRef(false); 
   const saveTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  // --- Active Object State ---
+  const [activeObject, setActiveObject] = useState<any | null>(null);
+
   // --- MAIN SAVE FUNCTION ---
   const saveState = useCallback((skipDebounce = false) => {
     if (isHistoryLocked.current) return;
@@ -108,11 +111,23 @@ export const useFabric = (
     // Wrapper that calls the FRESH saveState from the Ref
     const handleCanvasChange = () => {
         if (isHistoryLocked.current) return;
-        saveStateRef.current(false); // Debounced save for drag/modify
+        saveStateRef.current(false); 
     };
 
-    // Bind events once
-    canvas.on("object:modified", handleCanvasChange); // <-- Handles Move/Scale/Rotate
+    // --- Handle Right Click Selection ---
+    canvas.on('mouse:down', (opt: any) => {
+      // button 3 is right-click
+      if (opt.button === 3 && opt.target) {
+        // 1. Tell Fabric to select it
+        canvas.setActiveObject(opt.target);
+        canvas.renderAll();
+        
+        // 2. CRITICAL: Tell React it's selected so the Toolbar appears!
+        setActiveObject(opt.target); 
+      }
+    });
+
+    canvas.on("object:modified", handleCanvasChange);
     canvas.on("object:added", (e: any) => {
         if (e.target && e.target.id === "main-image") return;
         handleCanvasChange();
@@ -120,14 +135,28 @@ export const useFabric = (
     canvas.on("object:removed", handleCanvasChange);
     canvas.on("path:created", handleCanvasChange);
 
+    // --- Selection Listeners (Left Click) ---
+    const handleSelectionCreated = (e: any) => setActiveObject(e.selected ? e.selected[0] : null);
+    const handleSelectionUpdated = (e: any) => setActiveObject(e.selected ? e.selected[0] : null);
+    const handleSelectionCleared = () => setActiveObject(null); // Hides toolbar on deselect
+
+    canvas.on("selection:created", handleSelectionCreated);
+    canvas.on("selection:updated", handleSelectionUpdated);
+    canvas.on("selection:cleared", handleSelectionCleared);
+
     return () => {
       canvas.off("object:modified", handleCanvasChange);
       canvas.off("object:added", handleCanvasChange);
       canvas.off("object:removed", handleCanvasChange);
       canvas.off("path:created", handleCanvasChange);
+      canvas.off("mouse:down"); // Clean up right-click listener
+      
+      canvas.off("selection:created", handleSelectionCreated);
+      canvas.off("selection:updated", handleSelectionUpdated);
+      canvas.off("selection:cleared", handleSelectionCleared);
       fabricCanvasRef.current?.dispose();
     };
-  }, []); // Empty dependency array is now SAFE because we use saveStateRef
+  }, []);
 
   // 2. Load Main Image
   useEffect(() => {
@@ -243,6 +272,49 @@ export const useFabric = (
     });
   }, [history, historyIndex]);
 
+  const bringForward = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    const activeObj = canvas?.getActiveObject();
+    if (canvas && activeObj) {
+      activeObj.bringForward();
+      canvas.renderAll();
+      saveState(true);
+    }
+  }, [saveState]);
+
+  const sendBackward = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    const activeObj = canvas?.getActiveObject();
+    if (canvas && activeObj) {
+      activeObj.sendBackwards();
+      canvas.renderAll();
+      saveState(true);
+    }
+  }, [saveState]);
+
+  const bringToFront = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    const activeObj = canvas?.getActiveObject();
+    if (canvas && activeObj) {
+      activeObj.bringToFront();
+      canvas.renderAll();
+      saveState(true);
+    }
+  }, [saveState]);
+
+  const sendToBack = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    const activeObj = canvas?.getActiveObject();
+    if (canvas && activeObj) {
+      activeObj.sendToBack();
+      
+      // Optional: If you want the main image to ALWAYS be at the bottom,
+      // you might want to check here. But usually, standard sendToBack is okay.
+      
+      canvas.renderAll();
+      saveState(true);
+    }
+  }, [saveState]);
 
   // 6. Apply Filters
   useEffect(() => {
@@ -387,5 +459,10 @@ export const useFabric = (
     handleBackgroundImageUpload, clearBackgroundImage, setBackgroundImageFromUrl, setBackgroundColor,
     addStyledText, setOverlay, removeOverlay,
     undo, redo, canUndo: historyIndex > 0, canRedo: historyIndex < history.length - 1,
+    activeObject,
+    bringForward,
+    sendBackward,
+    bringToFront,
+    sendToBack,
   };
 };
