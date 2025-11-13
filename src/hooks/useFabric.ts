@@ -1,4 +1,3 @@
-// src/hooks/useFabric.ts
 "use client";
 
 import { useRef, useEffect, useState, useCallback, RefObject } from "react";
@@ -51,7 +50,7 @@ export const useFabric = (
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isHistoryLocked = useRef(false); 
   const saveTimeout = useRef<NodeJS.Timeout | null>(null);
-  
+
   // --- Active Object State ---
   const [activeObject, setActiveObject] = useState<any | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
@@ -69,16 +68,11 @@ export const useFabric = (
         const json = JSON.stringify(canvas.toJSON(['selectable', 'evented', 'id', 'lockMovementX', 'lockMovementY']));
         
         setHistory((prev) => {
-          // Strict Duplicate Check: Don't save if state hasn't changed
           if (historyIndex >= 0 && prev[historyIndex] === json) {
              return prev; 
           }
-
-          // Cut off future history if we are in the middle of the stack
           const newHistory = prev.slice(0, historyIndex + 1);
           newHistory.push(json);
-          
-          // Update index immediately
           setHistoryIndex(newHistory.length - 1);
           return newHistory;
         });
@@ -96,14 +90,10 @@ export const useFabric = (
     }
   }, [historyIndex]);
 
-  // --- Helper to close menu ---
   const closeContextMenu = useCallback(() => {
     setContextMenuPosition(null);
   }, []);
 
-  // --- REFRESH REF PATTERN ---
-  // This ensures our event listeners always see the latest 'saveState' function
-  // without needing to unbind/rebind listeners on every render.
   const saveStateRef = useRef(saveState);
   useEffect(() => {
     saveStateRef.current = saveState;
@@ -115,31 +105,23 @@ export const useFabric = (
     const canvas = initFabricCanvas(canvasRef);
     fabricCanvasRef.current = canvas;
 
-    // Wrapper that calls the FRESH saveState from the Ref
     const handleCanvasChange = () => {
         if (isHistoryLocked.current) return;
         saveStateRef.current(false); 
     };
 
-   // --- Handle Mouse Down (Context Menu Logic) ---
     canvas.on('mouse:down', (opt: any) => {
-      // Right Click (Button 3)
       if (opt.button === 3) {
         if (opt.target) {
-          // Select the object
           canvas.setActiveObject(opt.target);
           canvas.renderAll();
           setActiveObject(opt.target);
-          
-          // Show Menu at mouse position
-          // We use pointer.x/y relative to page for the fixed/absolute menu
           setContextMenuPosition({ 
             x: opt.e.clientX, 
             y: opt.e.clientY 
           });
         }
       } else {
-        // Left Click (Button 1) - Hide Menu
         setContextMenuPosition(null);
       }
     });
@@ -152,34 +134,23 @@ export const useFabric = (
     canvas.on("object:removed", handleCanvasChange);
     canvas.on("path:created", handleCanvasChange);
 
-    // Keep track of active object for general UI
     const updateActive = (e: any) => setActiveObject(e.selected ? e.selected[0] : null);
     canvas.on("selection:created", updateActive);
     canvas.on("selection:updated", updateActive);
     canvas.on("selection:cleared", () => {
         setActiveObject(null);
-        setContextMenuPosition(null); // Close menu if deselected
+        setContextMenuPosition(null); 
     });
-
-    // --- Selection Listeners (Left Click) ---
-    const handleSelectionCreated = (e: any) => setActiveObject(e.selected ? e.selected[0] : null);
-    const handleSelectionUpdated = (e: any) => setActiveObject(e.selected ? e.selected[0] : null);
-    const handleSelectionCleared = () => setActiveObject(null); // Hides toolbar on deselect
-
-    canvas.on("selection:created", handleSelectionCreated);
-    canvas.on("selection:updated", handleSelectionUpdated);
-    canvas.on("selection:cleared", handleSelectionCleared);
 
     return () => {
       canvas.off("object:modified", handleCanvasChange);
       canvas.off("object:added", handleCanvasChange);
       canvas.off("object:removed", handleCanvasChange);
       canvas.off("path:created", handleCanvasChange);
-      canvas.off("mouse:down"); // Clean up right-click listener
-      
-      canvas.off("selection:created", handleSelectionCreated);
-      canvas.off("selection:updated", handleSelectionUpdated);
-      canvas.off("selection:cleared", handleSelectionCleared);
+      canvas.off("mouse:down"); 
+      canvas.off("selection:created", updateActive);
+      canvas.off("selection:updated", updateActive);
+      canvas.off("selection:cleared");
       fabricCanvasRef.current?.dispose();
     };
   }, []);
@@ -195,14 +166,29 @@ export const useFabric = (
       () => { if (historyIndex === -1) { isHistoryLocked.current = false; saveState(true); } }
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [imageUrl]);
+  }, [imageUrl]); 
 
   // Tool Selectability
   useEffect(() => {
+      const canvas = fabricCanvasRef.current;
       const image = imageRef.current;
-      if(image) {
-        image.set({ selectable: activeTool === "cursor", evented: activeTool === "cursor" });
-        fabricCanvasRef.current?.renderAll();
+      
+      if(canvas) {
+        // When tool changes, update EVERY object's selectability, not just the main image
+        canvas.getObjects().forEach((obj: any) => {
+            obj.set({
+                selectable: activeTool === "cursor",
+                evented: activeTool === "cursor",
+            });
+        });
+        
+        if (image) {
+             image.set({
+                selectable: activeTool === "cursor",
+                evented: activeTool === "cursor",
+            });
+        }
+        canvas.renderAll();
       }
   }, [activeTool]);
 
@@ -236,45 +222,71 @@ export const useFabric = (
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [saveState]);
 
+  // --- NEW HELPER: Restore Objects State after Undo/Redo ---
+  const restoreObjectsState = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const objects = canvas.getObjects();
+    
+    // 1. Find and re-bind the main image ref
+    const mainImg = objects.find((obj: any) => obj.id === "main-image");
+    if (mainImg) imageRef.current = mainImg;
+
+    // 2. Force all objects to be selectable based on current tool
+    //    and update their coordinates (Hit detection fix)
+    objects.forEach((obj: any) => {
+        obj.set({
+            selectable: activeTool === "cursor",
+            evented: activeTool === "cursor",
+        });
+        obj.setCoords(); // <--- CRITICAL: Updates the hit box
+    });
+
+    canvas.renderAll();
+  }, [activeTool]);
+
   // --- UNDO FUNCTION ---
   const undo = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || historyIndex <= 0) return;
+
     isHistoryLocked.current = true;
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
+
     const prevIndex = historyIndex - 1;
     const prevState = history[prevIndex];
+
     let json;
     try { json = JSON.parse(prevState); } catch (e) { isHistoryLocked.current = false; return; }
+
     canvas.loadFromJSON(json, () => {
-      canvas.renderAll();
-      const objects = canvas.getObjects();
-      const mainImg = objects.find((obj: any) => obj.id === "main-image");
-      if (mainImg) imageRef.current = mainImg;
+      restoreObjectsState(); // <--- Fix Applied Here
       setHistoryIndex(prevIndex);
       setTimeout(() => { isHistoryLocked.current = false; }, 100);
     });
-  }, [history, historyIndex]);
+  }, [history, historyIndex, restoreObjectsState]);
 
   // --- REDO FUNCTION ---
   const redo = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || historyIndex >= history.length - 1) return;
+
     isHistoryLocked.current = true;
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
+
     const nextIndex = historyIndex + 1;
     const nextState = history[nextIndex];
+
     let json;
     try { json = JSON.parse(nextState); } catch (e) { isHistoryLocked.current = false; return; }
+
     canvas.loadFromJSON(json, () => {
-      canvas.renderAll();
-      const objects = canvas.getObjects();
-      const mainImg = objects.find((obj: any) => obj.id === "main-image");
-      if (mainImg) imageRef.current = mainImg;
+      restoreObjectsState(); // <--- Fix Applied Here
       setHistoryIndex(nextIndex);
       setTimeout(() => { isHistoryLocked.current = false; }, 100);
     });
-  }, [history, historyIndex]);
+  }, [history, historyIndex, restoreObjectsState]);
 
   const bringForward = useCallback(() => {
     const canvas = fabricCanvasRef.current;
@@ -332,7 +344,6 @@ export const useFabric = (
           evented: true,
         });
         if (cloned.type === 'activeSelection') {
-          // active selection needs a reference to the canvas.
           cloned.canvas = canvas;
           cloned.forEachObject((obj: any) => {
             canvas.add(obj);
@@ -349,7 +360,6 @@ export const useFabric = (
     }
   }, [saveState, closeContextMenu]);
 
-  // --- NEW: Delete Function (Wrapper) ---
   const deleteObject = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     const activeObj = canvas?.getActiveObject();
@@ -375,7 +385,6 @@ export const useFabric = (
 
     const newFilters: any[] = [];
 
-    // Adjustments
     if (brightness !== 0) newFilters.push(new window.fabric.Image.filters.Brightness({ brightness }));
     if (contrast !== 0) newFilters.push(new window.fabric.Image.filters.Contrast({ contrast }));
     const gammaValue = 1.0 + highlight;
@@ -386,7 +395,6 @@ export const useFabric = (
     }
     if (adjustBlur > 0) newFilters.push(new window.fabric.Image.filters.Blur({ blur: adjustBlur }));
 
-    // Effects
     if (isBlurEnabled) {
       const blurIntensity = effectBlurValue / 100;
       switch (blurType) {
@@ -395,13 +403,12 @@ export const useFabric = (
         case "square": 
             const blockSize = Math.max(2, Math.round((effectBlurValue / 100) * 20));
             newFilters.push(new window.fabric.Image.filters.Pixelate({ blocksize: blockSize })); break;
-        case "motion":
+        case "motion": 
             let matrixSize = 3; if (effectBlurValue > 33) matrixSize = 5; if (effectBlurValue > 66) matrixSize = 7;
             const val = 1 / matrixSize;
             const motionMatrix = new Array(matrixSize * matrixSize).fill(0);
             for(let i=0; i<matrixSize; i++) motionMatrix[Math.floor(matrixSize/2) * matrixSize + i] = val; 
-            newFilters.push(new window.fabric.Image.filters.Convolute({ matrix: motionMatrix }));
-            break;
+            newFilters.push(new window.fabric.Image.filters.Convolute({ matrix: motionMatrix })); break;
       }
     }
 
@@ -416,7 +423,6 @@ export const useFabric = (
       }
     }
 
-    // Properties
     image.set('opacity', opacity);
     if (shadow > 0) {
       image.set('shadow', new window.fabric.Shadow({ color: 'rgba(0,0,0,0.7)', blur: shadow * 20, offsetX: shadow * 5, offsetY: shadow * 5 }));
@@ -428,7 +434,7 @@ export const useFabric = (
     image.applyFilters();
     canvas.renderAll();
     
-    saveState(); // Debounced save for filters
+    saveState();
 
   }, [
     isBlurEnabled, blurType, effectBlurValue, isFilterEnabled, filterType,
@@ -436,7 +442,6 @@ export const useFabric = (
     saveState
   ]);
 
-  // Actions (Wrapped to save history)
   const setBackgroundColor = useCallback((color: string) => {
     setCanvasColor(fabricCanvasRef.current, color);
     saveState(true);
@@ -478,7 +483,6 @@ export const useFabric = (
     canvas.add(textObj);
     canvas.setActiveObject(textObj);
     canvas.renderAll();
-    // object:added listener triggers save
   }, []);
 
   const setOverlay = useCallback((imageUrl: string) => {
