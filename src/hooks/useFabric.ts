@@ -1,3 +1,4 @@
+// src/hooks/useFabric.ts
 "use client";
 
 import { useRef, useEffect, useState, useCallback, RefObject } from "react";
@@ -50,9 +51,10 @@ export const useFabric = (
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isHistoryLocked = useRef(false); 
   const saveTimeout = useRef<NodeJS.Timeout | null>(null);
-
+  
   // --- Active Object State ---
   const [activeObject, setActiveObject] = useState<any | null>(null);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
 
   // --- MAIN SAVE FUNCTION ---
   const saveState = useCallback((skipDebounce = false) => {
@@ -94,6 +96,11 @@ export const useFabric = (
     }
   }, [historyIndex]);
 
+  // --- Helper to close menu ---
+  const closeContextMenu = useCallback(() => {
+    setContextMenuPosition(null);
+  }, []);
+
   // --- REFRESH REF PATTERN ---
   // This ensures our event listeners always see the latest 'saveState' function
   // without needing to unbind/rebind listeners on every render.
@@ -114,16 +121,26 @@ export const useFabric = (
         saveStateRef.current(false); 
     };
 
-    // --- Handle Right Click Selection ---
+   // --- Handle Mouse Down (Context Menu Logic) ---
     canvas.on('mouse:down', (opt: any) => {
-      // button 3 is right-click
-      if (opt.button === 3 && opt.target) {
-        // 1. Tell Fabric to select it
-        canvas.setActiveObject(opt.target);
-        canvas.renderAll();
-        
-        // 2. CRITICAL: Tell React it's selected so the Toolbar appears!
-        setActiveObject(opt.target); 
+      // Right Click (Button 3)
+      if (opt.button === 3) {
+        if (opt.target) {
+          // Select the object
+          canvas.setActiveObject(opt.target);
+          canvas.renderAll();
+          setActiveObject(opt.target);
+          
+          // Show Menu at mouse position
+          // We use pointer.x/y relative to page for the fixed/absolute menu
+          setContextMenuPosition({ 
+            x: opt.e.clientX, 
+            y: opt.e.clientY 
+          });
+        }
+      } else {
+        // Left Click (Button 1) - Hide Menu
+        setContextMenuPosition(null);
       }
     });
 
@@ -134,6 +151,15 @@ export const useFabric = (
     });
     canvas.on("object:removed", handleCanvasChange);
     canvas.on("path:created", handleCanvasChange);
+
+    // Keep track of active object for general UI
+    const updateActive = (e: any) => setActiveObject(e.selected ? e.selected[0] : null);
+    canvas.on("selection:created", updateActive);
+    canvas.on("selection:updated", updateActive);
+    canvas.on("selection:cleared", () => {
+        setActiveObject(null);
+        setContextMenuPosition(null); // Close menu if deselected
+    });
 
     // --- Selection Listeners (Left Click) ---
     const handleSelectionCreated = (e: any) => setActiveObject(e.selected ? e.selected[0] : null);
@@ -166,24 +192,16 @@ export const useFabric = (
       imageUrl,
       activeTool,
       setImageDimensions,
-      () => {
-        if (historyIndex === -1) {
-            isHistoryLocked.current = false;
-            saveState(true); // Immediate save
-        }
-      }
+      () => { if (historyIndex === -1) { isHistoryLocked.current = false; saveState(true); } }
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [imageUrl]); 
+  }, [imageUrl]);
 
   // Tool Selectability
   useEffect(() => {
       const image = imageRef.current;
       if(image) {
-        image.set({
-            selectable: activeTool === "cursor",
-            evented: activeTool === "cursor",
-        });
+        image.set({ selectable: activeTool === "cursor", evented: activeTool === "cursor" });
         fabricCanvasRef.current?.renderAll();
       }
   }, [activeTool]);
@@ -202,7 +220,6 @@ export const useFabric = (
       if (e.key === "Delete" || e.key === "Backspace") {
         const target = e.target as HTMLElement;
         if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
-        
         const activeObjects = canvas.getActiveObjects();
         if (activeObjects.length) {
           const isEditing = activeObjects.some((obj: any) => obj.isEditing);
@@ -210,37 +227,30 @@ export const useFabric = (
             activeObjects.forEach((obj: any) => canvas.remove(obj));
             canvas.discardActiveObject();
             canvas.renderAll();
-            // Use the ref here too for consistency
-            saveStateRef.current(true); 
+            saveState(true);
           }
         }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [saveState]);
 
   // --- UNDO FUNCTION ---
   const undo = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || historyIndex <= 0) return;
-
     isHistoryLocked.current = true;
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
-
     const prevIndex = historyIndex - 1;
     const prevState = history[prevIndex];
-
     let json;
-    try { json = JSON.parse(prevState); } 
-    catch (e) { isHistoryLocked.current = false; return; }
-
+    try { json = JSON.parse(prevState); } catch (e) { isHistoryLocked.current = false; return; }
     canvas.loadFromJSON(json, () => {
       canvas.renderAll();
       const objects = canvas.getObjects();
       const mainImg = objects.find((obj: any) => obj.id === "main-image");
       if (mainImg) imageRef.current = mainImg;
-
       setHistoryIndex(prevIndex);
       setTimeout(() => { isHistoryLocked.current = false; }, 100);
     });
@@ -250,23 +260,17 @@ export const useFabric = (
   const redo = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || historyIndex >= history.length - 1) return;
-
     isHistoryLocked.current = true;
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
-
     const nextIndex = historyIndex + 1;
     const nextState = history[nextIndex];
-
     let json;
-    try { json = JSON.parse(nextState); } 
-    catch (e) { isHistoryLocked.current = false; return; }
-
+    try { json = JSON.parse(nextState); } catch (e) { isHistoryLocked.current = false; return; }
     canvas.loadFromJSON(json, () => {
       canvas.renderAll();
       const objects = canvas.getObjects();
       const mainImg = objects.find((obj: any) => obj.id === "main-image");
       if (mainImg) imageRef.current = mainImg;
-
       setHistoryIndex(nextIndex);
       setTimeout(() => { isHistoryLocked.current = false; }, 100);
     });
@@ -279,8 +283,9 @@ export const useFabric = (
       activeObj.bringForward();
       canvas.renderAll();
       saveState(true);
+      closeContextMenu();
     }
-  }, [saveState]);
+  }, [saveState, closeContextMenu]);
 
   const sendBackward = useCallback(() => {
     const canvas = fabricCanvasRef.current;
@@ -289,8 +294,9 @@ export const useFabric = (
       activeObj.sendBackwards();
       canvas.renderAll();
       saveState(true);
+      closeContextMenu();
     }
-  }, [saveState]);
+  }, [saveState, closeContextMenu]);
 
   const bringToFront = useCallback(() => {
     const canvas = fabricCanvasRef.current;
@@ -299,22 +305,65 @@ export const useFabric = (
       activeObj.bringToFront();
       canvas.renderAll();
       saveState(true);
+      closeContextMenu();
     }
-  }, [saveState]);
+  }, [saveState, closeContextMenu]);
 
   const sendToBack = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     const activeObj = canvas?.getActiveObject();
     if (canvas && activeObj) {
       activeObj.sendToBack();
-      
-      // Optional: If you want the main image to ALWAYS be at the bottom,
-      // you might want to check here. But usually, standard sendToBack is okay.
-      
       canvas.renderAll();
       saveState(true);
+      closeContextMenu();
     }
-  }, [saveState]);
+  }, [saveState, closeContextMenu]);
+
+  const duplicateObject = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    const activeObj = canvas?.getActiveObject();
+    if (canvas && activeObj) {
+      activeObj.clone((cloned: any) => {
+        canvas.discardActiveObject();
+        cloned.set({
+          left: cloned.left + 20,
+          top: cloned.top + 20,
+          evented: true,
+        });
+        if (cloned.type === 'activeSelection') {
+          // active selection needs a reference to the canvas.
+          cloned.canvas = canvas;
+          cloned.forEachObject((obj: any) => {
+            canvas.add(obj);
+          });
+          cloned.setCoords();
+        } else {
+          canvas.add(cloned);
+        }
+        canvas.setActiveObject(cloned);
+        canvas.requestRenderAll();
+        saveState(true);
+        closeContextMenu();
+      });
+    }
+  }, [saveState, closeContextMenu]);
+
+  // --- NEW: Delete Function (Wrapper) ---
+  const deleteObject = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    const activeObj = canvas?.getActiveObject();
+    if (canvas && activeObj) {
+        const activeObjects = canvas.getActiveObjects();
+        if (activeObjects.length) {
+            activeObjects.forEach((obj: any) => canvas.remove(obj));
+            canvas.discardActiveObject();
+            canvas.renderAll();
+            saveState(true);
+            closeContextMenu();
+        }
+    }
+  }, [saveState, closeContextMenu]);
 
   // 6. Apply Filters
   useEffect(() => {
@@ -460,9 +509,13 @@ export const useFabric = (
     addStyledText, setOverlay, removeOverlay,
     undo, redo, canUndo: historyIndex > 0, canRedo: historyIndex < history.length - 1,
     activeObject,
+    contextMenuPosition,
+    closeContextMenu,
     bringForward,
     sendBackward,
     bringToFront,
     sendToBack,
+    duplicateObject,
+    deleteObject,
   };
 };

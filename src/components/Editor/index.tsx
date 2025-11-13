@@ -11,6 +11,7 @@ import { BlurType, FilterType, Tool } from "@/types/editor";
 import EffectsPanel from "./EffectsPanel";
 import AdjustPanel from "./AdjustPanel";
 import DesignPanel from "./DesignPanel";
+import ContextMenu from "./ContextMenu";
 
 export type EditorTab =
   | "backgrounds"
@@ -104,10 +105,14 @@ const EditorView: FC<EditorViewProps> = ({
     canUndo,
     canRedo,
     activeObject,
+    contextMenuPosition,
+    closeContextMenu,
     bringForward,
     sendBackward,
     bringToFront,
     sendToBack,
+    duplicateObject,
+    deleteObject
   } = useFabric(
     currentImageUrl,
     activeTool,
@@ -167,10 +172,14 @@ const EditorView: FC<EditorViewProps> = ({
         canUndo={canUndo}
         canRedo={canRedo}
         activeObject={activeObject}
+        contextMenuPosition={contextMenuPosition}
+        onCloseContextMenu={closeContextMenu}
         onBringForward={bringForward}
         onSendBackward={sendBackward}
         onBringToFront={bringToFront}
         onSendToBack={sendToBack}
+        onDuplicate={duplicateObject}
+        onDelete={deleteObject}
       />
 
       {/* Panels */}

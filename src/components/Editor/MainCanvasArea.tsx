@@ -1,3 +1,4 @@
+// src/components/Editor/MainCanvasArea.tsx
 "use client";
 
 import React from "react";
@@ -6,7 +7,7 @@ import EditorCanvas from "./EditorCanvas";
 import CanvasControls from "./CanvasControls";
 import CanvasFooter from "./CanvasFooter";
 import { Tool } from "@/types/editor";
-import ObjectLayerToolbar from "./ObjectLayerToolbar";
+import ContextMenu from "./ContextMenu";
 
 interface MainCanvasAreaProps {
   activeTab: EditorTab;
@@ -24,11 +25,16 @@ interface MainCanvasAreaProps {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  // Active Object & Layer Actions
   activeObject: any | null;
+  contextMenuPosition: { x: number; y: number } | null;
+  onCloseContextMenu: () => void;
   onBringForward: () => void;
   onSendBackward: () => void;
   onBringToFront: () => void;
   onSendToBack: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
 }
 
 const MainCanvasArea: React.FC<MainCanvasAreaProps> = (props) => {
@@ -41,8 +47,12 @@ const MainCanvasArea: React.FC<MainCanvasAreaProps> = (props) => {
         hasBeenEdited={props.hasBeenEdited}
       />
 
-      {props.activeObject && !props.isPreviewing && (
-        <ObjectLayerToolbar
+      {props.contextMenuPosition && !props.isPreviewing && (
+        <ContextMenu
+          position={props.contextMenuPosition}
+          onClose={props.onCloseContextMenu}
+          onDuplicate={props.onDuplicate}
+          onDelete={props.onDelete}
           onBringForward={props.onBringForward}
           onSendBackward={props.onSendBackward}
           onBringToFront={props.onBringToFront}
