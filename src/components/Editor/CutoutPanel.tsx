@@ -110,7 +110,7 @@ const CutoutPanel: FC<CutoutPanelProps> = ({
         <button
           disabled // As requested, restore API is not ready
           className="flex flex-col items-center justify-center gap-2 p-3 bg-gray-100 text-gray-400 rounded-lg border-2 border-gray-200 cursor-not-allowed"
-          title="Restore (Coming Soon)"
+          title="Restore (Coming Soon; till then you can use Undo😉)"
         >
           <RestoreIcon />
           <span className="text-sm font-semibold">Restore</span>
