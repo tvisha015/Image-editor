@@ -240,6 +240,19 @@ const EditorView: FC<EditorViewProps> = ({
           onRemoveTemplate={removeOverlay}
         />
       )}
+
+      {contextMenuPosition && !isPreviewing && (
+        <ContextMenu
+          position={contextMenuPosition}
+          onClose={closeContextMenu}
+          onDuplicate={duplicateObject}
+          onDelete={deleteObject}
+          onBringForward={bringForward}
+          onSendBackward={sendBackward}
+          onBringToFront={bringToFront}
+          onSendToBack={sendToBack}
+        />
+      )}
     </div>
   );
 };

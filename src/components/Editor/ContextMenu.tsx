@@ -1,8 +1,8 @@
 "use client";
 
-import React, { FC, useState } from "react";
+import React, { FC, useState, useRef, useLayoutEffect } from "react";
 
-// --- Icons ---
+// --- Icons (Keep existing icons) ---
 const DuplicateIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
 );
@@ -43,12 +43,62 @@ const ContextMenu: FC<ContextMenuProps> = ({
   onSendToBack,
 }) => {
   const [showLayersSubmenu, setShowLayersSubmenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const submenuRef = useRef<HTMLDivElement>(null);
+
+  // State to hold calculated positions
+  const [menuCoords, setMenuCoords] = useState({ top: 0, left: 0 });
+  const [submenuDirection, setSubmenuDirection] = useState<'right' | 'left'>('right');
+  const [submenuVertical, setSubmenuVertical] = useState<'bottom' | 'top'>('bottom');
+
+  // Calculate position before paint
+  useLayoutEffect(() => {
+    if (!position || !menuRef.current) return;
+
+    const menu = menuRef.current;
+    const rect = menu.getBoundingClientRect();
+    
+    let x = position.x;
+    let y = position.y;
+
+    // 1. Vertical Check (Bottom edge)
+    // If menu goes off bottom, flip it upwards
+    if (y + rect.height > window.innerHeight) {
+      y = y - rect.height;
+    }
+
+    // 2. Horizontal Check (Right edge)
+    // If menu goes off right, move it left
+    if (x + rect.width > window.innerWidth) {
+      x = x - rect.width;
+    }
+
+    setMenuCoords({ top: y, left: x });
+
+    // 3. Submenu Logic
+    // Default: Open to the right
+    let subDir: 'right' | 'left' = 'right';
+    // If not enough space on right, open to left
+    if (x + rect.width + 200 > window.innerWidth) { 
+      subDir = 'left';
+    }
+    setSubmenuDirection(subDir);
+
+    // Vertical submenu check
+    // If the menu was flipped up, the submenu usually aligns top-to-top
+    // But if we are near bottom, we might want to align bottom-up
+    if (y + 200 > window.innerHeight) {
+        setSubmenuVertical('top');
+    } else {
+        setSubmenuVertical('bottom');
+    }
+
+  }, [position]);
 
   if (!position) return null;
 
   return (
     <>
-      {/* Overlay */}
       <div 
         className="fixed inset-0 z-40" 
         onClick={onClose} 
@@ -56,8 +106,9 @@ const ContextMenu: FC<ContextMenuProps> = ({
       />
 
       <div
-        className="absolute z-50 bg-white rounded-lg shadow-xl border border-gray-100 py-1 w-48 text-sm text-gray-700 animate-in fade-in zoom-in-95 duration-100"
-        style={{ top: position.y, left: position.x }}
+        ref={menuRef}
+        className="fixed z-[9999] bg-white rounded-lg shadow-xl border border-gray-100 py-1 w-48 text-sm text-gray-700"
+        style={{ top: menuCoords.top, left: menuCoords.left }}
         onContextMenu={(e) => e.preventDefault()}
       >
         {/* Duplicate */}
@@ -96,7 +147,13 @@ const ContextMenu: FC<ContextMenuProps> = ({
 
           {/* Nested Submenu */}
           {showLayersSubmenu && (
-            <div className="absolute left-full top-0 ml-1 w-48 bg-white rounded-lg shadow-xl border border-gray-100 py-1">
+            <div 
+                ref={submenuRef}
+                className={`absolute w-48 bg-white rounded-lg shadow-xl border border-gray-100 py-1
+                    ${submenuDirection === 'right' ? 'left-full ml-1' : 'right-full mr-1'}
+                    ${submenuVertical === 'bottom' ? 'top-0' : 'bottom-0'}
+                `}
+            >
               <button onClick={onBringToFront} className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-50 text-left">
                 <TopIcon /> Bring to Front
               </button>

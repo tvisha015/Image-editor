@@ -47,7 +47,7 @@ const MainCanvasArea: React.FC<MainCanvasAreaProps> = (props) => {
         hasBeenEdited={props.hasBeenEdited}
       />
 
-      {props.contextMenuPosition && !props.isPreviewing && (
+      {/* {props.contextMenuPosition && !props.isPreviewing && (
         <ContextMenu
           position={props.contextMenuPosition}
           onClose={props.onCloseContextMenu}
@@ -58,7 +58,7 @@ const MainCanvasArea: React.FC<MainCanvasAreaProps> = (props) => {
           onBringToFront={props.onBringToFront}
           onSendToBack={props.onSendToBack}
         />
-      )}
+      )} */}
 
       <EditorCanvas
         canvasRef={props.canvasRef}
