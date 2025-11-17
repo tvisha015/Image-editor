@@ -3,14 +3,9 @@
 import { useRef, useEffect, useState, useCallback, RefObject } from "react";
 import { Tool, BlurType, FilterType } from "../types/editor";
 
-// Imports
 import { initFabricCanvas, updateMainImage } from "@/libs/fabric/canvasSetup";
 import { clearCanvasDrawings, useFabricBrush } from "@/libs/fabric/drawingActions";
 import { useFabricZoom } from "@/libs/fabric/interactionEffects";
-import { useFabricHistory } from "./fabric/useFabricHistory";
-import { useFabricFilters } from "./fabric/useFabricFilters";
-import { useFabricSelection } from "./fabric/useFabricSelection";
-
 import {
   clearCanvasBgImage,
   setCanvasBgImageFromUrl,
@@ -18,6 +13,11 @@ import {
   uploadCanvasBgImage,
 } from "@/libs/fabric/backgroundActions";
 import { exportCanvasImage, removeObjectApiCall } from "@/libs/fabric/apiActions";
+
+// --- Import Sub-Hooks ---
+import { useFabricHistory } from "./fabric/useFabricHistory";
+import { useFabricFilters } from "./fabric/useFabricFilters";
+import { useFabricSelection } from "./fabric/useFabricSelection";
 import { useFabricActions } from "./fabric/useFabricAction";
 
 export const useFabric = (
@@ -42,20 +42,19 @@ export const useFabric = (
   adjustBlur: number,
 ) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fabricCanvasRef = useRef<any | null>(null);
   const imageRef = useRef<any | null>(null);
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
 
-  // --- CORE: Store Canvas in State so other hooks react to it ---
+  // --- CORE: Store Canvas in State ---
   const [fabricCanvas, setFabricCanvas] = useState<any | null>(null);
-  // We also keep a ref for functions that need immediate access without dependencies
-  const fabricCanvasRef = useRef<any | null>(null);
 
   // 1. Initialize Canvas
   useEffect(() => {
     const canvas = initFabricCanvas(canvasRef);
     if (canvas) {
         fabricCanvasRef.current = canvas;
-        setFabricCanvas(canvas); // This triggers the other hooks
+        setFabricCanvas(canvas); 
     }
     return () => {
       canvas?.dispose();
@@ -63,17 +62,9 @@ export const useFabric = (
     };
   }, []);
 
-  // --- SUB-HOOKS (Pass the canvas state) ---
-  
-  // History Hook
+  // --- SUB-HOOKS ---
   const { saveState, undo, redo, canUndo, canRedo, isHistoryLocked, historyIndex } = useFabricHistory(fabricCanvas, imageRef);
-
-  // Selection Hook (Handles Right Click)
   const { activeObject, contextMenuPosition, closeContextMenu } = useFabricSelection(fabricCanvas);
-
-  // Actions Hook (Layers, Delete, Duplicate, Design)
-  // Note: You need to ensure useFabricActions is created (I provided it in previous step) 
-  // and accepts (fabricCanvasRef, saveState, closeContextMenu)
   const { 
     bringForward, sendBackward, bringToFront, sendToBack, duplicateObject, deleteObject,
     addStyledText, setOverlay, removeOverlay
@@ -88,7 +79,6 @@ export const useFabric = (
   // --- GLOBAL EVENT BINDING FOR HISTORY ---
   useEffect(() => {
     if (!fabricCanvas) return;
-
     const handleCanvasChange = () => {
         if (isHistoryLocked.current) return;
         saveState(false); 
@@ -112,7 +102,6 @@ export const useFabric = (
     };
   }, [fabricCanvas, saveState, isHistoryLocked]);
 
-
   // 2. Load Main Image
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -130,7 +119,8 @@ export const useFabric = (
           } 
       }
     );
-  }, [imageUrl, fabricCanvas]); // Run when canvas is ready
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageUrl, fabricCanvas]); 
 
   // Tool Selectability
   useEffect(() => {
@@ -161,28 +151,74 @@ export const useFabric = (
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [fabricCanvas, deleteObject]);
 
+  // --- NEW: RESIZE FUNCTION ---
+  const resizeCanvas = useCallback((width: number, height: number) => {
+    if (!fabricCanvas) return;
+
+    // 1. Resize the canvas logic
+    fabricCanvas.setDimensions({ width, height });
+    setImageDimensions({ width, height }); // Update UI state
+
+    // 2. Re-center the main image (Dog)
+    const objects = fabricCanvas.getObjects();
+    const mainImg = objects.find((obj: any) => obj.id === "main-image");
+
+    if (mainImg) {
+      mainImg.center(); 
+      mainImg.setCoords(); 
+    }
+
+    // 3. Re-scale background if it's an image (Template)
+    if (fabricCanvas.backgroundImage) {
+        const bgImg = fabricCanvas.backgroundImage;
+        if (bgImg instanceof window.fabric.Image) {
+             // Scale image to cover the new canvas size
+             const scaleX = width / (bgImg.width || 1);
+             const scaleY = height / (bgImg.height || 1);
+             const scale = Math.max(scaleX, scaleY);
+             
+             bgImg.set({
+                 scaleX: scale,
+                 scaleY: scale,
+                 left: width / 2,
+                 top: height / 2,
+                 originX: 'center',
+                 originY: 'center'
+             });
+        }
+    }
+
+    fabricCanvas.renderAll();
+    saveState(true); // Save history
+  }, [fabricCanvas, saveState]);
+
+
   // Actions wrappers
   const setBackgroundColor = useCallback((color: string) => {
+    if (!fabricCanvas) return;
     setCanvasColor(fabricCanvas, color);
     saveState(true);
   }, [fabricCanvas, saveState]);
 
   const handleBackgroundImageUpload = useCallback((file: File) => {
+    if (!fabricCanvas) return;
     uploadCanvasBgImage(fabricCanvas, file, () => saveState(true));
   }, [fabricCanvas, saveState]);
 
   const clearBackgroundImage = useCallback(() => {
+    if (!fabricCanvas) return;
     clearCanvasBgImage(fabricCanvas);
     saveState(true);
   }, [fabricCanvas, saveState]);
 
   const setBackgroundImageFromUrl = useCallback((imageUrl: string) => {
+    if (!fabricCanvas) return;
     setCanvasBgImageFromUrl(fabricCanvas, imageUrl, () => saveState(true));
   }, [fabricCanvas, saveState]);
 
-  const handleDownloadImage = useCallback(() => { exportCanvasImage(fabricCanvas); }, [fabricCanvas]);
-  const handleRemoveObject = useCallback(async () => { await removeObjectApiCall(fabricCanvas, imageRef.current, onComplete); }, [fabricCanvas, onComplete]);
-  const clearDrawings = useCallback(() => { clearCanvasDrawings(fabricCanvas); saveState(true); }, [fabricCanvas, saveState]);
+  const handleDownloadImage = useCallback(() => { if(fabricCanvas) exportCanvasImage(fabricCanvas); }, [fabricCanvas]);
+  const handleRemoveObject = useCallback(async () => { if(fabricCanvas) await removeObjectApiCall(fabricCanvas, imageRef.current, onComplete); }, [fabricCanvas, onComplete]);
+  const clearDrawings = useCallback(() => { if(fabricCanvas) { clearCanvasDrawings(fabricCanvas); saveState(true); } }, [fabricCanvas, saveState]);
 
   return {
     canvasRef, imageDimensions, handleRemoveObject, handleDownloadImage, clearDrawings,
@@ -191,5 +227,6 @@ export const useFabric = (
     undo, redo, canUndo, canRedo,
     activeObject, contextMenuPosition, closeContextMenu,
     bringForward, sendBackward, bringToFront, sendToBack, duplicateObject, deleteObject,
+    resizeCanvas,
   };
 };

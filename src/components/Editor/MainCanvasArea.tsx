@@ -35,6 +35,8 @@ interface MainCanvasAreaProps {
   onSendToBack: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  // Resize
+  onOpenResize: () => void;
 }
 
 const MainCanvasArea: React.FC<MainCanvasAreaProps> = (props) => {
@@ -45,8 +47,8 @@ const MainCanvasArea: React.FC<MainCanvasAreaProps> = (props) => {
         isPreviewing={props.isPreviewing}
         onTogglePreview={props.onTogglePreview}
         hasBeenEdited={props.hasBeenEdited}
+        onOpenResize={props.onOpenResize} 
       />
-
       {/* {props.contextMenuPosition && !props.isPreviewing && (
         <ContextMenu
           position={props.contextMenuPosition}

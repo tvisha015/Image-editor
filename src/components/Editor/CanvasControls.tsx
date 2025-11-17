@@ -5,6 +5,10 @@ import React from "react";
 import { EditorTab } from "./index";
 import { Tool } from "@/types/editor";
 
+// --- Icons ---
+const ResizeIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+);
 // --- Before/After Toggle Component ---
 const PreviewToggle: React.FC<{
   isPreviewing: boolean;
@@ -40,7 +44,7 @@ interface CanvasControlsProps {
   isPreviewing: boolean;
   hasBeenEdited: boolean;
   onTogglePreview: () => void;
-  // All brush and remove object props are REMOVED
+  onOpenResize: () => void;
 }
 
 const CanvasControls: React.FC<CanvasControlsProps> = ({
@@ -48,6 +52,7 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
   isPreviewing,
   hasBeenEdited,
   onTogglePreview,
+  onOpenResize,
 }) => {
   // Conditionally render controls based on the active tab
   const renderTabControls = () => {
@@ -90,18 +95,26 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
 
   return (
     <header className="w-full h-16 bg-white flex items-center justify-between px-6 border-b border-gray-200 flex-shrink-0">
-      {/* Left Side: Tab-specific controls */}
-      <div className="flex-1">
+      <div className="flex-1 flex items-center gap-4">
+        
+        {/* --- RESIZE BUTTON --- */}
+        <button 
+            onClick={onOpenResize}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+            <ResizeIcon />
+            Resize
+        </button>
+
+        <div className="h-6 w-px bg-gray-300 mx-2"></div>
+
         {!isPreviewing ? (
           renderTabControls()
         ) : (
-          <span className="text-sm font-semibold text-gray-600">
-            Preview Mode
-          </span>
+          <span className="text-sm font-semibold text-gray-600">Preview Mode</span>
         )}
       </div>
 
-      {/* Right Side: Before/After Toggle */}
       {hasBeenEdited && (
         <PreviewToggle isPreviewing={isPreviewing} onToggle={onTogglePreview} />
       )}

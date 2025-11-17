@@ -12,6 +12,7 @@ import EffectsPanel from "./EffectsPanel";
 import AdjustPanel from "./AdjustPanel";
 import DesignPanel from "./DesignPanel";
 import ContextMenu from "./ContextMenu";
+import ResizePanel from "./ResizePanel";
 
 export type EditorTab =
   | "backgrounds"
@@ -54,6 +55,9 @@ const EditorView: FC<EditorViewProps> = ({
   const [shadow, setShadow] = useState(0); 
   const [opacity, setOpacity] = useState(1);
   const [adjustBlur, setAdjustBlur] = useState(0);
+
+  // State for Resize Panel
+  const [isResizeOpen, setIsResizeOpen] = useState(false);
 
   // Handlers (omitted for brevity, keep your existing ones)
   // ... keep handleSetBrightness, handleSetIsBlurEnabled etc ... 
@@ -112,7 +116,8 @@ const EditorView: FC<EditorViewProps> = ({
     bringToFront,
     sendToBack,
     duplicateObject,
-    deleteObject
+    deleteObject,
+    resizeCanvas,
   } = useFabric(
     currentImageUrl,
     activeTool,
@@ -152,6 +157,12 @@ const EditorView: FC<EditorViewProps> = ({
     }
   };
 
+  // --- Template Selection Handler ---
+  const handleTemplateSelect = (url: string) => {
+      // You can add logic here if you have different types of templates.
+      // Based on your description (Posters), we treat them as BACKGROUNDS.
+      setBackgroundImageFromUrl(url);
+  };
   return (
     <div className="w-full flex-1 flex overflow-hidden">
       <EditorNavSidebar activeTab={activeTab} onTabChange={handleTabChange} />
@@ -180,6 +191,7 @@ const EditorView: FC<EditorViewProps> = ({
         onSendToBack={sendToBack}
         onDuplicate={duplicateObject}
         onDelete={deleteObject}
+        onOpenResize={() => setIsResizeOpen(true)}
       />
 
       {/* Panels */}
@@ -251,6 +263,13 @@ const EditorView: FC<EditorViewProps> = ({
           onSendBackward={sendBackward}
           onBringToFront={bringToFront}
           onSendToBack={sendToBack}
+        />
+      )}
+
+      {isResizeOpen && (
+        <ResizePanel 
+            onResize={resizeCanvas} 
+            onClose={() => setIsResizeOpen(false)} 
         />
       )}
     </div>
