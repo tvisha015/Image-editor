@@ -17,6 +17,30 @@ export interface TextStyle {
   textBackgroundColor?: string;
   textAlign?: string;
 }
+export interface TemplateLayer {
+  type: 'text' | 'rect' | 'circle' | 'image'; // Simple types for now
+  text?: string;
+  fill?: string;
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: string | number;
+  left: number; // Percentage (0 to 1) relative to canvas width
+  top: number;  // Percentage (0 to 1) relative to canvas height
+  width?: number;
+  height?: number;
+  originX?: string;
+  originY?: string;
+  angle?: number;
+  selectable?: boolean;
+}
+
+export interface EditableTemplate {
+  id: string;
+  name: string;
+  previewUrl: string; // Thumbnail for the sidebar
+  backgroundColor: string;
+  layers: TemplateLayer[]; // The shapes and text
+}
 
 export const textDesigns = [
   {
@@ -206,6 +230,91 @@ export const textDesigns = [
     }
   }
   // Add more designs here...
+];
+
+export const editableTemplates: EditableTemplate[] = [
+  {
+    id: "black-friday-modern",
+    name: "Black Friday",
+    previewUrl: "/templates/previews/black-friday-thumb.png", // Make sure this exists or use a placeholder
+    backgroundColor: "#BE185D", // Pink/Red background
+    layers: [
+      // 1. Background Shape (Dark box behind text)
+      {
+        type: 'rect',
+        fill: '#831843',
+        left: 0.5, top: 0.5,
+        width: 350, height: 400,
+        originX: 'center', originY: 'center',
+        selectable: true
+      },
+      // 2. Top Text
+      {
+        type: 'text',
+        text: "BLACK",
+        fontFamily: "Impact",
+        fontSize: 80,
+        fill: "#000000",
+        left: 0.5, top: 0.25,
+        originX: 'center', originY: 'center'
+      },
+      // 3. Bottom Text
+      {
+        type: 'text',
+        text: "FRIDAY",
+        fontFamily: "Impact",
+        fontSize: 80,
+        fill: "#000000",
+        left: 0.5, top: 0.75,
+        originX: 'center', originY: 'center'
+      },
+      // 4. Discount Bubble
+      {
+        type: 'circle',
+        fill: '#FCD34D', // Yellow
+        width: 40, // Radius
+        left: 0.8, top: 0.8,
+        originX: 'center', originY: 'center'
+      },
+      {
+        type: 'text',
+        text: "50%\nOFF",
+        fontSize: 20,
+        fontFamily: "Arial",
+        fontWeight: "bold",
+        fill: "#000000",
+        left: 0.8, top: 0.8,
+        originX: 'center', originY: 'center'
+      }
+    ]
+  },
+  {
+    id: "simple-showcase",
+    name: "Showcase",
+    previewUrl: "/templates/previews/showcase-thumb.png",
+    backgroundColor: "#F3F4F6", // Light Grey
+    layers: [
+      // Simple Frame Border
+      {
+        type: 'rect',
+        fill: 'transparent',
+        width: 0.9, // 90% of canvas
+        height: 0.9,
+        left: 0.5, top: 0.5,
+        originX: 'center', originY: 'center',
+        // We use stroke for border in actual implementation, but for this demo struct:
+      },
+      {
+        type: 'text',
+        text: "New Arrival",
+        fontFamily: "Courier New",
+        fontSize: 40,
+        fill: "#333333",
+        left: 0.5, top: 0.1,
+        originX: 'center', originY: 'center'
+      }
+    ]
+  }
 ];
 
 // Templates remain the same

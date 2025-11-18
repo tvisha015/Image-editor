@@ -1,12 +1,14 @@
+// src/components/Editor/DesignPanel.tsx
 "use client";
 
 import React, { FC } from "react";
-import { textDesigns, templates } from "@/libs/fabric/designAssets";
+import { textDesigns, templates, EditableTemplate, editableTemplates } from "@/libs/fabric/designAssets";
 
 interface DesignPanelProps {
   // Updated signature to accept text and style object
   onAddTextDesign: (text: string, style: any) => void;
   onSelectTemplate: (imageUrl: string) => void;
+  onApplyTemplate: (template: EditableTemplate) => void;
   onRemoveTemplate: () => void;
 }
 
@@ -36,35 +38,30 @@ const BanIcon = () => (
   </svg>
 );
 
-const DesignPanel: FC<DesignPanelProps> = ({ onAddTextDesign, onSelectTemplate, onRemoveTemplate }) => {
+const DesignPanel: FC<DesignPanelProps> = ({
+  onAddTextDesign,
+  onApplyTemplate,
+  onRemoveTemplate,
+}) => {
   return (
     <aside className="w-80 bg-white shadow-lg z-10 border-l border-gray-200 flex flex-col h-full">
-      
-      {/* Fixed Header */}
       <div className="p-4 border-b border-gray-100 flex-shrink-0">
         <h3 className="text-base font-semibold text-gray-800">Design</h3>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
         
         {/* --- Add Text Section --- */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Add Text</h4>
-          
           <div className="grid grid-cols-2 gap-3 max-h-[180px] overflow-y-auto custom-scrollbar pr-2">
             {textDesigns.map((design) => (
               <button
                 key={design.id}
                 onClick={() => onAddTextDesign(design.defaultText, design.style)}
                 className="h-20 rounded-md flex items-center justify-center transition-transform hover:scale-105 shadow-sm border border-gray-100 bg-gray-50 overflow-hidden p-2 group shrink-0"
-                title={`Add ${design.id}`}
               >
-                <img
-                  src={design.previewUrl}
-                  alt={design.id}
-                  className="max-h-full max-w-full object-contain group-hover:scale-110 transition-transform duration-200"
-                />
+                <img src={design.previewUrl} alt={design.id} className="max-h-full max-w-full object-contain group-hover:scale-110 transition-transform" />
               </button>
             ))}
           </div>
@@ -73,9 +70,9 @@ const DesignPanel: FC<DesignPanelProps> = ({ onAddTextDesign, onSelectTemplate, 
         {/* --- Templates Section --- */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 mb-3">
-            Use A Template
+            Templates
           </h4>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-3">
             
             {/* Discard Button */}
             <button
@@ -87,18 +84,19 @@ const DesignPanel: FC<DesignPanelProps> = ({ onAddTextDesign, onSelectTemplate, 
               <span className="text-xs text-gray-500 font-medium">None</span>
             </button>
 
-            {/* Templates List */}
-            {templates.map((template) => (
+            {/* Editable Templates List */}
+            {editableTemplates.map((template) => (
               <button
                 key={template.id}
-                onClick={() => onSelectTemplate(template.url)}
-                className="relative w-full aspect-square bg-gray-100 rounded-md overflow-hidden hover:opacity-80 transition-opacity border border-gray-200 group"
+                onClick={() => onApplyTemplate(template)}
+                className="relative w-full h-32 bg-gray-100 rounded-md overflow-hidden hover:opacity-90 transition-opacity border border-gray-200 group"
               >
-                <img
-                  src={template.previewUrl}
-                  alt={template.id}
-                  className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200"
-                />
+                {/* You can use a screenshot of the template here */}
+                {/* For now, using a colored div to represent it if image fails */}
+                <div className="w-full h-full flex items-center justify-center text-white font-bold text-sm p-2 text-center" style={{ backgroundColor: template.backgroundColor }}>
+                   {template.name}
+                   {/* <img src={template.previewUrl} className="absolute inset-0 w-full h-full object-cover" /> */}
+                </div>
               </button>
             ))}
           </div>

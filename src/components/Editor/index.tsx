@@ -102,6 +102,7 @@ const EditorView: FC<EditorViewProps> = ({
     setBackgroundImageFromUrl,
     setBackgroundColor: setCanvasBackgroundColor,
     addStyledText,
+    applyTemplate,
     setOverlay,
     removeOverlay,
     undo,
@@ -249,6 +250,7 @@ const EditorView: FC<EditorViewProps> = ({
         <DesignPanel
           onAddTextDesign={addStyledText}
           onSelectTemplate={setOverlay}
+          onApplyTemplate={applyTemplate}
           onRemoveTemplate={removeOverlay}
         />
       )}

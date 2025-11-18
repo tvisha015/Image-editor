@@ -1,3 +1,4 @@
+// src/hooks/useFabric.ts
 "use client";
 
 import { useRef, useEffect, useState, useCallback, RefObject } from "react";
@@ -19,6 +20,7 @@ import { useFabricHistory } from "./fabric/useFabricHistory";
 import { useFabricFilters } from "./fabric/useFabricFilters";
 import { useFabricSelection } from "./fabric/useFabricSelection";
 import { useFabricActions } from "./fabric/useFabricAction";
+import { EditableTemplate } from "@/libs/fabric/designAssets";
 
 export const useFabric = (
   imageUrl: string,
@@ -220,6 +222,81 @@ export const useFabric = (
   const handleRemoveObject = useCallback(async () => { if(fabricCanvas) await removeObjectApiCall(fabricCanvas, imageRef.current, onComplete); }, [fabricCanvas, onComplete]);
   const clearDrawings = useCallback(() => { if(fabricCanvas) { clearCanvasDrawings(fabricCanvas); saveState(true); } }, [fabricCanvas, saveState]);
 
+  const applyTemplate = useCallback((template: EditableTemplate) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    // 1. Find the main image (The User's Upload)
+    const objects = canvas.getObjects();
+    const mainImg = objects.find((obj: any) => obj.id === "main-image");
+
+    // 2. Clear Canvas (Remove everything except we saved a reference to mainImg)
+    canvas.clear();
+
+    // 3. Set Background Color
+    canvas.setBackgroundColor(template.backgroundColor, canvas.renderAll.bind(canvas));
+
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+
+    // 4. Add Template Layers
+    template.layers.forEach((layer) => {
+      let obj;
+      
+      // Calculate absolute positions based on percentages (0.5 = center)
+      const left = layer.left * canvasWidth;
+      const top = layer.top * canvasHeight;
+
+      if (layer.type === 'text') {
+        obj = new window.fabric.IText(layer.text || "Text", {
+          ...layer,
+          left, top
+        });
+      } else if (layer.type === 'rect') {
+        obj = new window.fabric.Rect({
+          ...layer,
+          width: layer.width || 100,
+          height: layer.height || 100,
+          left, top
+        });
+      } else if (layer.type === 'circle') {
+        obj = new window.fabric.Circle({
+          ...layer,
+          radius: layer.width || 50, // map width to radius for simplicity
+          left, top
+        });
+      }
+
+      if (obj) {
+        // We set id="template-item" so we know these aren't the main image
+        obj.set('id', 'template-item');
+        canvas.add(obj);
+      }
+    });
+
+    // 5. Put the Main Image (Dog) back
+    if (mainImg) {
+      // Reset any previous filters/shadows if you want a clean look, 
+      // or keep them if you want to preserve edits.
+      
+      // We add it back.
+      canvas.add(mainImg);
+      
+      // Center it in the design
+      mainImg.center();
+      mainImg.setCoords();
+      
+      // Bring to front so it sits on top of the template background shapes
+      mainImg.bringToFront();
+      
+      // Update the ref in case it got lost (though object reference persists)
+      imageRef.current = mainImg;
+    }
+
+    canvas.renderAll();
+    saveState(true); // Save to history
+  }, [saveState]);
+
   return {
     canvasRef, imageDimensions, handleRemoveObject, handleDownloadImage, clearDrawings,
     handleBackgroundImageUpload, clearBackgroundImage, setBackgroundImageFromUrl, setBackgroundColor,
@@ -227,6 +304,6 @@ export const useFabric = (
     undo, redo, canUndo, canRedo,
     activeObject, contextMenuPosition, closeContextMenu,
     bringForward, sendBackward, bringToFront, sendToBack, duplicateObject, deleteObject,
-    resizeCanvas,
+    resizeCanvas, applyTemplate,
   };
 };
