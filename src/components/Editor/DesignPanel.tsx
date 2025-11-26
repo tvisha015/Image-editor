@@ -72,12 +72,15 @@ const DesignPanel: FC<DesignPanelProps> = ({
           <h4 className="text-sm font-semibold text-gray-700 mb-3">
             Templates
           </h4>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
+          
+          {/* Templates Scroll Area: Fixed max height */}
+          <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
             
             {/* Discard Button */}
             <button
               onClick={onRemoveTemplate}
-              className="relative w-full aspect-square bg-white rounded-md overflow-hidden hover:bg-gray-50 transition-colors border-2 border-dashed border-gray-300 flex items-center justify-center flex-col gap-1"
+              className="relative w-full h-32 bg-white rounded-md overflow-hidden hover:bg-gray-50 transition-colors border-2 border-dashed border-gray-300 flex items-center justify-center flex-col gap-1 shrink-0"
               title="Remove Template"
             >
               <BanIcon />
@@ -89,18 +92,21 @@ const DesignPanel: FC<DesignPanelProps> = ({
               <button
                 key={template.id}
                 onClick={() => onApplyTemplate(template)}
-                className="relative w-full h-32 bg-gray-100 rounded-md overflow-hidden hover:opacity-90 transition-opacity border border-gray-200 group"
+                className="relative w-full h-32 bg-gray-100 rounded-md overflow-hidden hover:opacity-90 transition-opacity border border-gray-200 group shrink-0"
               >
-                {/* You can use a screenshot of the template here */}
-                {/* For now, using a colored div to represent it if image fails */}
-                <div className="w-full h-full flex items-center justify-center text-white font-bold text-sm p-2 text-center" style={{ backgroundColor: template.backgroundColor }}>
+                <div 
+                  className="w-full h-full flex items-center justify-center text-white font-bold text-sm p-2 text-center" 
+                  style={{ backgroundColor: template.backgroundColor }}
+                >
                    {template.name}
-                   {/* <img src={template.previewUrl} className="absolute inset-0 w-full h-full object-cover" /> */}
                 </div>
               </button>
             ))}
+            
           </div>
         </div>
+        </div>
+
       </div>
     </aside>
   );
