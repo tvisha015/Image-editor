@@ -103,6 +103,7 @@ const EditorView: FC<EditorViewProps> = ({
     setBackgroundColor: setCanvasBackgroundColor,
     addStyledText,
     applyTemplate,
+    isTemplateLoading,
     setOverlay,
     removeOverlay,
     undo,
@@ -193,6 +194,7 @@ const EditorView: FC<EditorViewProps> = ({
         onDuplicate={duplicateObject}
         onDelete={deleteObject}
         onOpenResize={() => setIsResizeOpen(true)}
+        isTemplateLoading={isTemplateLoading}
       />
 
       {/* Panels */}

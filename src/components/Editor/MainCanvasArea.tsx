@@ -37,6 +37,7 @@ interface MainCanvasAreaProps {
   onDelete: () => void;
   // Resize
   onOpenResize: () => void;
+  isTemplateLoading: boolean;
 }
 
 const MainCanvasArea: React.FC<MainCanvasAreaProps> = (props) => {
@@ -49,6 +50,15 @@ const MainCanvasArea: React.FC<MainCanvasAreaProps> = (props) => {
         hasBeenEdited={props.hasBeenEdited}
         onOpenResize={props.onOpenResize} 
       />
+
+      {/* --- LOADING OVERLAY --- */}
+      {props.isTemplateLoading && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
+           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+           <p className="text-gray-600 font-semibold animate-pulse">Applying Template...</p>
+        </div>
+      )}
+      
       {/* {props.contextMenuPosition && !props.isPreviewing && (
         <ContextMenu
           position={props.contextMenuPosition}

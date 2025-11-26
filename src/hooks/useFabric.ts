@@ -50,6 +50,8 @@ export const useFabric = (
   // --- CORE: Store Canvas in State ---
   const [fabricCanvas, setFabricCanvas] = useState<any | null>(null);
 
+  const [isTemplateLoading, setIsTemplateLoading] = useState(false);
+
   // 1. Initialize Canvas
   useEffect(() => {
     const canvas = initFabricCanvas(canvasRef);
@@ -282,73 +284,113 @@ export const useFabric = (
   const handleRemoveObject = useCallback(async () => { if(fabricCanvas) await removeObjectApiCall(fabricCanvas, imageRef.current, onComplete); }, [fabricCanvas, onComplete]);
   const clearDrawings = useCallback(() => { if(fabricCanvas) { clearCanvasDrawings(fabricCanvas); saveState(true); } }, [fabricCanvas, saveState]);
 
-  const applyTemplate = useCallback((template: EditableTemplate) => {
+  const applyTemplate = useCallback(async (template: EditableTemplate) => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
-    const objects = canvas.getObjects();
-    const mainImg = objects.find((obj: any) => obj.id === "main-image");
+    // 1. START LOADING
+    setIsTemplateLoading(true);
 
-    // Resize Canvas & Update State
-    canvas.setDimensions({ width: template.width, height: template.height });
-    setImageDimensions({ width: template.width, height: template.height });
+    try {
+        // 2. Save Main Image
+        const objects = canvas.getObjects();
+        const mainImg = objects.find((obj: any) => obj.id === "main-image");
 
-    canvas.clear();
+        // 3. Resize & Clear
+        canvas.setDimensions({ width: template.width, height: template.height });
+        setImageDimensions({ width: template.width, height: template.height });
+        canvas.clear();
+        canvas.setBackgroundColor(template.backgroundColor, canvas.renderAll.bind(canvas));
 
-    // Set Background Color
-    canvas.setBackgroundColor(template.backgroundColor, canvas.renderAll.bind(canvas));
+        const canvasWidth = template.width;
+        const canvasHeight = template.height;
+        
+        // Update controls for new size
+        const maxDim = Math.max(canvasWidth, canvasHeight);
+        const cornerSize = Math.max(15, Math.round(maxDim * 0.025));
+        const borderScale = Math.max(1, Math.round(maxDim * 0.003));
+        
+        window.fabric.Object.prototype.set({
+            cornerSize, borderScaleFactor: borderScale,
+            transparentCorners: false, cornerColor: '#ffffff', cornerStrokeColor: '#3b82f6', borderColor: '#3b82f6', cornerStyle: 'circle'
+        });
 
-    const canvasWidth = template.width;
-    const canvasHeight = template.height;
-    
-    // --- Update Defaults for this new size ---
-    const maxDim = Math.max(canvasWidth, canvasHeight);
-    const cornerSize = Math.max(15, Math.round(maxDim * 0.025));
-    const borderScale = Math.max(1, Math.round(maxDim * 0.003));
-    
-    window.fabric.Object.prototype.set({
-        cornerSize, borderScaleFactor: borderScale,
-        transparentCorners: false, cornerColor: '#ffffff', cornerStrokeColor: '#3b82f6', borderColor: '#3b82f6', cornerStyle: 'circle'
-    });
+        // 4. Create all objects
+        const objectPromises = template.layers.map((layer) => {
+          return new Promise<any>((resolve) => {
+            const left = layer.left * canvasWidth;
+            const top = layer.top * canvasHeight;
 
-    // Add Layers
-    template.layers.forEach((layer) => {
-      let obj;
-      const left = layer.left * canvasWidth;
-      const top = layer.top * canvasHeight;
+            if (layer.type === 'image' && layer.url) {
+              window.fabric.Image.fromURL(layer.url, (img: any) => {
+                if (layer.width) {
+                    const desiredWidth = layer.width * canvasWidth;
+                    img.scaleToWidth(desiredWidth);
+                }
+                img.set({
+                  left, top,
+                  originX: layer.originX || 'center',
+                  originY: layer.originY || 'center',
+                  selectable: layer.selectable !== false,
+                  id: 'template-item',
+                  cornerSize, borderScaleFactor: borderScale
+                });
+                resolve(img);
+              }, { crossOrigin: 'anonymous' });
+              
+            } else {
+              // Handle Shapes/Text (Unchanged)
+              let obj;
+              if (layer.type === 'text') {
+                obj = new window.fabric.IText(layer.text || "Text", { ...layer, left, top });
+              } else if (layer.type === 'rect') {
+                const w = layer.width && layer.width <= 1 ? layer.width * canvasWidth : layer.width;
+                const h = layer.height && layer.height <= 1 ? layer.height * canvasHeight : layer.height;
+                obj = new window.fabric.Rect({ ...layer, width: w || 100, height: h || 100, left, top });
+              } else if (layer.type === 'circle') {
+                 const w = layer.width && layer.width <= 1 ? layer.width * canvasWidth : layer.width || 50;
+                obj = new window.fabric.Circle({ ...layer, radius: w, left, top });
+              }
 
-      if (layer.type === 'text') {
-        obj = new window.fabric.IText(layer.text || "Text", { ...layer, left, top });
-      } else if (layer.type === 'rect') {
-        const w = layer.width && layer.width <= 1 ? layer.width * canvasWidth : layer.width;
-        const h = layer.height && layer.height <= 1 ? layer.height * canvasHeight : layer.height;
-        obj = new window.fabric.Rect({ ...layer, width: w || 100, height: h || 100, left, top });
-      } else if (layer.type === 'circle') {
-         const w = layer.width && layer.width <= 1 ? layer.width * canvasWidth : layer.width || 50;
-        obj = new window.fabric.Circle({ ...layer, radius: w, left, top });
-      }
+              if (obj) {
+                obj.set({ 
+                    id: 'template-item',
+                    cornerSize, borderScaleFactor: borderScale 
+                });
+                resolve(obj);
+              } else {
+                resolve(null);
+              }
+            }
+          });
+        });
 
-      if (obj) {
-        obj.set('id', 'template-item');
-        // Apply correct control sizes
-        obj.set({ cornerSize, borderScaleFactor: borderScale });
-        canvas.add(obj);
-      }
-    });
+        // 5. Wait for everything to load
+        const loadedObjects = await Promise.all(objectPromises);
+        
+        loadedObjects.forEach((obj) => {
+            if (obj) canvas.add(obj);
+        });
 
-    // Re-Add Main Image
-    if (mainImg) {
-      canvas.add(mainImg);
-      mainImg.center();
-      mainImg.setCoords();
-      mainImg.bringToFront();
-      // Ensure main image has correct control sizes
-      mainImg.set({ cornerSize, borderScaleFactor: borderScale });
-      imageRef.current = mainImg;
+        // 6. Add Main Image (Dog) on TOP
+        if (mainImg) {
+          canvas.add(mainImg);
+          mainImg.center();
+          mainImg.setCoords();
+          mainImg.bringToFront();
+          mainImg.set({ cornerSize, borderScaleFactor: borderScale });
+          imageRef.current = mainImg;
+        }
+
+        canvas.renderAll();
+        saveState(true);
+        
+    } catch (error) {
+        console.error("Template loading failed", error);
+    } finally {
+        // 7. STOP LOADING (Run this whether success or error)
+        setIsTemplateLoading(false);
     }
-
-    canvas.renderAll();
-    saveState(true);
   }, [saveState]);
 
   return {
@@ -358,6 +400,5 @@ export const useFabric = (
     undo, redo, canUndo, canRedo,
     activeObject, contextMenuPosition, closeContextMenu,
     bringForward, sendBackward, bringToFront, sendToBack, duplicateObject, deleteObject,
-    resizeCanvas, applyTemplate,
-  };
+    resizeCanvas, isTemplateLoading, applyTemplate,  };
 };

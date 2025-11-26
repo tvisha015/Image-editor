@@ -28,6 +28,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Hidden text to force browser to load the font immediately */}
+        <div style={{ fontFamily: 'Orange Avenue DEMO', opacity: 0, height: 0, width: 0, overflow: 'hidden' }}>
+          .
+        </div>
         {children}
       </body>
     </html>
