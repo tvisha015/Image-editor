@@ -132,10 +132,27 @@ export const useFabricActions = (
   const removeOverlay = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || !window.fabric) return;
-    canvas.setOverlayImage(null, () => {
-      canvas.renderAll();
-      saveState(true);
+
+    // 1. Remove Overlay Image (Frames)
+    canvas.setOverlayImage(null, () => {});
+
+    // 2. Remove Background Image (Posters set via URL)
+    canvas.setBackgroundImage(null, () => {});
+
+    // 3. Reset Background Color
+    canvas.setBackgroundColor('transparent', () => {});
+
+    // 4. Remove Editable Template Objects
+    // We look for objects we tagged with id="template-item"
+    const objects = canvas.getObjects();
+    const templateObjects = objects.filter((obj: any) => obj.id === 'template-item');
+    
+    templateObjects.forEach((obj: any) => {
+        canvas.remove(obj);
     });
+
+    canvas.renderAll();
+    saveState(true);
   }, [saveState, fabricCanvasRef]);
 
   return {
