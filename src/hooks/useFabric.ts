@@ -1,4 +1,3 @@
-// src/hooks/useFabric.ts
 "use client";
 
 import { useRef, useEffect, useState, useCallback, RefObject } from "react";
@@ -14,13 +13,13 @@ import {
   uploadCanvasBgImage,
 } from "@/libs/fabric/backgroundActions";
 import { exportCanvasImage, removeObjectApiCall } from "@/libs/fabric/apiActions";
+import { EditableTemplate } from "@/libs/fabric/designAssets";
 
-// --- Import Sub-Hooks ---
+// Import Sub-Hooks
 import { useFabricHistory } from "./fabric/useFabricHistory";
 import { useFabricFilters } from "./fabric/useFabricFilters";
 import { useFabricSelection } from "./fabric/useFabricSelection";
 import { useFabricActions } from "./fabric/useFabricAction";
-import { EditableTemplate } from "@/libs/fabric/designAssets";
 
 export const useFabric = (
   imageUrl: string,
@@ -78,18 +77,15 @@ export const useFabric = (
     brightness, contrast, highlight, sharpen, shadow, opacity, adjustBlur
   });
 
-  // --- GLOBAL EVENT BINDING FOR HISTORY ---
+  // --- GLOBAL HISTORY EVENT BINDING ---
   useEffect(() => {
     if (!fabricCanvas) return;
     const handleCanvasChange = () => {
         if (isHistoryLocked.current) return;
         saveState(false); 
     };
-
-    // Bind events to trigger history save
     fabricCanvas.on("object:modified", handleCanvasChange);
     fabricCanvas.on("object:added", (e: any) => {
-        // Ignore main image initial load
         if (e.target && e.target.id === "main-image") return;
         handleCanvasChange();
     });
@@ -114,7 +110,6 @@ export const useFabric = (
       activeTool,
       setImageDimensions,
       () => { 
-          // Save initial state if history is empty
           if (historyIndex === -1) { 
               isHistoryLocked.current = false; 
               saveState(true); 
@@ -153,83 +148,112 @@ export const useFabric = (
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [fabricCanvas, deleteObject]);
 
- // --- UPDATED: Resize Canvas Function ---
-  // --- UPDATED: Resize Canvas with Smart Controls ---
+  // --- UPDATED: Resize Function ---
   const resizeCanvas = useCallback((width: number, height: number) => {
     if (!fabricCanvas) return;
 
-    // 1. Resize the canvas container
+    // 1. Resize Canvas Container
     fabricCanvas.setDimensions({ width, height });
-    setImageDimensions({ width, height }); 
+    setImageDimensions({ width, height });
 
-    // 2. Smart Controls: Calculate proper corner size
-    // Standard screen is ~1000px wide. If canvas is 2000px, we need double size corners.
-    // We aim for a visual size of roughly 15px-20px.
+    // --- 2. SMART CONTROL SIZING ---
+    // Calculate optimal size for handles based on canvas size
     const maxDim = Math.max(width, height);
-    // Heuristic: roughly 2.5% of the largest dimension, clamped between 15px and 100px
-    const cornerSize = Math.max(15, Math.min(100, maxDim * 0.025));
     
-    // Update Global Defaults for NEW objects
+    // This formula scales controls up for large canvases (4K) 
+    // and keeps them reasonable for small ones.
+    // Base size 12px, plus 1.5% of the canvas dimension.
+    const cornerSize = Math.max(15, Math.round(maxDim * 0.025)); 
+    const borderScale = Math.max(1, Math.round(maxDim * 0.003));
+    const padding = Math.max(5, Math.round(maxDim * 0.01));
+
+    // Apply to GLOBAL DEFAULTS (for future objects)
     window.fabric.Object.prototype.set({
         cornerSize: cornerSize,
         transparentCorners: false,
         cornerColor: '#ffffff',
-        cornerStrokeColor: '#3b82f6', // Blue
+        cornerStrokeColor: '#3b82f6', // Blue border
         borderColor: '#3b82f6',
         cornerStyle: 'circle',
-        borderScaleFactor: Math.max(2, maxDim * 0.003), // Thicker borders for huge images
-        padding: Math.max(10, maxDim * 0.01), // More padding for touch targets
+        borderScaleFactor: borderScale,
+        padding: padding,
     });
 
-    // 3. Fit Content (Your existing logic)
+    // --- 3. SMART OBJECT SCALING ---
+    // Scale up the main object so it doesn't look tiny
     const objects = fabricCanvas.getObjects();
-    if (objects.length > 0) {
-        const group = new window.fabric.ActiveSelection(objects, {
+    
+    // Filter out the background/template items, we want to scale the user content (dog, text)
+    // If you want to scale EVERYTHING, just use 'objects'
+    const contentObjects = objects.filter((obj: any) => obj.id !== 'template-bg');
+
+    if (contentObjects.length > 0) {
+        // Create temporary group to scale everything together
+        const group = new window.fabric.ActiveSelection(contentObjects, {
             canvas: fabricCanvas,
         });
+        
         const groupWidth = group.getScaledWidth();
         const groupHeight = group.getScaledHeight();
-        const scaleX = (width * 0.85) / groupWidth;
-        const scaleY = (height * 0.85) / groupHeight;
+
+        // Scale to fill about 75% of the screen width or height
+        const scaleX = (width * 0.75) / groupWidth;
+        const scaleY = (height * 0.75) / groupHeight;
         const scale = Math.min(scaleX, scaleY);
 
-        group.scale(scale);
-        group.center();
+        // Don't shrink it if it's already huge, but do scale UP if it's tiny
+        // Also don't blow it up ridiculously (max 5x)
+        if (scale > 1 || scale < 1) { 
+             const finalScale = Math.min(scale, 5);
+             // Use center point for scaling
+             group.scale(finalScale);
+             group.center();
+        } else {
+            group.center();
+        }
+
         group.setCoords();
-        group.destroy(); 
-        
-        // 4. Apply new control sizes to EXISTING objects
-        objects.forEach((obj: any) => {
-            obj.set({
-                cornerSize: cornerSize,
-                transparentCorners: false,
-                cornerColor: '#ffffff',
-                cornerStrokeColor: '#3b82f6',
-                borderColor: '#3b82f6',
-                cornerStyle: 'circle',
-                borderScaleFactor: Math.max(2, maxDim * 0.003),
-                padding: Math.max(10, maxDim * 0.01),
-            });
-            obj.setCoords();
-        });
+        group.destroy(); // Ungroup back to individuals
     }
 
-    // 5. Background Image Logic (Unchanged)
+    // --- 4. APPLY CONTROL SIZES TO EXISTING OBJECTS ---
+    objects.forEach((obj: any) => {
+        obj.set({
+            cornerSize: cornerSize,
+            transparentCorners: false,
+            cornerColor: '#ffffff',
+            cornerStrokeColor: '#3b82f6',
+            borderColor: '#3b82f6',
+            cornerStyle: 'circle',
+            borderScaleFactor: borderScale,
+            padding: padding,
+        });
+        obj.setCoords();
+    });
+
+    // 5. Re-scale Background Image (Template) if it exists
     if (fabricCanvas.backgroundImage) {
         const bgImg = fabricCanvas.backgroundImage;
         if (bgImg instanceof window.fabric.Image) {
              const scaleX = width / (bgImg.width || 1);
              const scaleY = height / (bgImg.height || 1);
-             const scale = Math.max(scaleX, scaleY); 
+             const scale = Math.max(scaleX, scaleY);
+             
              bgImg.set({
-                 scaleX: scale, scaleY: scale, left: width / 2, top: height / 2, originX: 'center', originY: 'center'
+                 scaleX: scale,
+                 scaleY: scale,
+                 left: width / 2,
+                 top: height / 2,
+                 originX: 'center',
+                 originY: 'center'
              });
         }
     }
 
     fabricCanvas.renderAll();
-    saveState(true); 
+    saveState(true);
   }, [fabricCanvas, saveState]);
+
 
   // Actions wrappers
   const setBackgroundColor = useCallback((color: string) => {
@@ -262,75 +286,69 @@ export const useFabric = (
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
-    // 1. Find the main image (The User's Upload)
     const objects = canvas.getObjects();
     const mainImg = objects.find((obj: any) => obj.id === "main-image");
 
-    // 2. Clear Canvas (Remove everything except we saved a reference to mainImg)
+    // Resize Canvas & Update State
+    canvas.setDimensions({ width: template.width, height: template.height });
+    setImageDimensions({ width: template.width, height: template.height });
+
     canvas.clear();
 
-    // 3. Set Background Color
+    // Set Background Color
     canvas.setBackgroundColor(template.backgroundColor, canvas.renderAll.bind(canvas));
 
-    const canvasWidth = canvas.getWidth();
-    const canvasHeight = canvas.getHeight();
+    const canvasWidth = template.width;
+    const canvasHeight = template.height;
+    
+    // --- Update Defaults for this new size ---
+    const maxDim = Math.max(canvasWidth, canvasHeight);
+    const cornerSize = Math.max(15, Math.round(maxDim * 0.025));
+    const borderScale = Math.max(1, Math.round(maxDim * 0.003));
+    
+    window.fabric.Object.prototype.set({
+        cornerSize, borderScaleFactor: borderScale,
+        transparentCorners: false, cornerColor: '#ffffff', cornerStrokeColor: '#3b82f6', borderColor: '#3b82f6', cornerStyle: 'circle'
+    });
 
-    // 4. Add Template Layers
+    // Add Layers
     template.layers.forEach((layer) => {
       let obj;
-      
-      // Calculate absolute positions based on percentages (0.5 = center)
       const left = layer.left * canvasWidth;
       const top = layer.top * canvasHeight;
 
       if (layer.type === 'text') {
-        obj = new window.fabric.IText(layer.text || "Text", {
-          ...layer,
-          left, top
-        });
+        obj = new window.fabric.IText(layer.text || "Text", { ...layer, left, top });
       } else if (layer.type === 'rect') {
-        obj = new window.fabric.Rect({
-          ...layer,
-          width: layer.width || 100,
-          height: layer.height || 100,
-          left, top
-        });
+        const w = layer.width && layer.width <= 1 ? layer.width * canvasWidth : layer.width;
+        const h = layer.height && layer.height <= 1 ? layer.height * canvasHeight : layer.height;
+        obj = new window.fabric.Rect({ ...layer, width: w || 100, height: h || 100, left, top });
       } else if (layer.type === 'circle') {
-        obj = new window.fabric.Circle({
-          ...layer,
-          radius: layer.width || 50, // map width to radius for simplicity
-          left, top
-        });
+         const w = layer.width && layer.width <= 1 ? layer.width * canvasWidth : layer.width || 50;
+        obj = new window.fabric.Circle({ ...layer, radius: w, left, top });
       }
 
       if (obj) {
-        // We set id="template-item" so we know these aren't the main image
         obj.set('id', 'template-item');
+        // Apply correct control sizes
+        obj.set({ cornerSize, borderScaleFactor: borderScale });
         canvas.add(obj);
       }
     });
 
-    // 5. Put the Main Image (Dog) back
+    // Re-Add Main Image
     if (mainImg) {
-      // Reset any previous filters/shadows if you want a clean look, 
-      // or keep them if you want to preserve edits.
-      
-      // We add it back.
       canvas.add(mainImg);
-      
-      // Center it in the design
       mainImg.center();
       mainImg.setCoords();
-      
-      // Bring to front so it sits on top of the template background shapes
       mainImg.bringToFront();
-      
-      // Update the ref in case it got lost (though object reference persists)
+      // Ensure main image has correct control sizes
+      mainImg.set({ cornerSize, borderScaleFactor: borderScale });
       imageRef.current = mainImg;
     }
 
     canvas.renderAll();
-    saveState(true); // Save to history
+    saveState(true);
   }, [saveState]);
 
   return {

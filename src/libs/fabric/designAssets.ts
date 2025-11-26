@@ -32,6 +32,7 @@ export interface TemplateLayer {
   originY?: string;
   angle?: number;
   selectable?: boolean;
+  textAlign?: string;
 }
 
 export interface EditableTemplate {
@@ -39,7 +40,9 @@ export interface EditableTemplate {
   name: string;
   previewUrl: string; // Thumbnail for the sidebar
   backgroundColor: string;
-  layers: TemplateLayer[]; // The shapes and text
+  width: number; 
+  height: number;
+  layers: TemplateLayer[];
 }
 
 export const textDesigns = [
@@ -234,10 +237,66 @@ export const textDesigns = [
 
 export const editableTemplates: EditableTemplate[] = [
   {
+    id: "fashion-abstract",
+    name: "Fashion Abstract",
+    previewUrl: "/templates/fashion/fashion1.png",
+    backgroundColor: "#ffffff", // White background
+    width: 1080,
+    height: 1080,
+    layers: [
+      // 1. Top-Left Blue Shape (Approximated with a large circle)
+      {
+        type: 'circle',
+        fill: '#7BB8FF',
+        // Positioned top-left, partially off-canvas
+        left: 0.1, top: 0.1,
+        width: 0.55, // Treated as radius percentage in our current logic
+        originX: 'center', originY: 'center',
+        selectable: true
+      },
+      // 2. Bottom-Right Blue Shape
+      {
+        type: 'circle',
+        fill: '#7BB8FF',
+        // Positioned bottom-right, partially off-canvas
+        left: 0.9, top: 0.9,
+        width: 0.45, // Radius percentage
+        originX: 'center', originY: 'center',
+        selectable: true
+      },
+      // 3. Headline Text
+      {
+        type: 'text',
+        // Using manual line breaks (\n) to match the design layout
+        text: "Vestibulum\nnon felis\nquis magna\neuismod\ndictum.",
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        fontSize: 90, // Large size for 1080p base
+        fill: "#000000",
+        left: 0.05, top: 0.08, // Top-left padding
+        textAlign: 'left',
+        selectable: true
+      },
+      // 4. Body Text
+      {
+        type: 'text',
+        text: "Mauris nunc lectus, laoreet ut ex\nfinibus, pulvinar pellentesque\norci. Donec a auctor augue.",
+        fontFamily: "Helvetica, Arial, sans-serif",
+        fontSize: 32,
+        fill: "#333333",
+        left: 0.05, top: 0.62, // Positioned below the headline
+        textAlign: 'left',
+        selectable: true
+      }
+      // Note: The main image (the dog/person) will be added automatically on top of these layers by the applyTemplate function.
+    ]
+  },
+  {
     id: "black-friday-modern",
     name: "Black Friday",
     previewUrl: "/templates/previews/black-friday-thumb.png", // Make sure this exists or use a placeholder
     backgroundColor: "#BE185D", // Pink/Red background
+    width: 1080,
+    height: 1350,
     layers: [
       // 1. Background Shape (Dark box behind text)
       {
@@ -293,6 +352,8 @@ export const editableTemplates: EditableTemplate[] = [
     name: "Showcase",
     previewUrl: "/templates/previews/showcase-thumb.png",
     backgroundColor: "#F3F4F6", // Light Grey
+    width: 1080,
+    height: 1080,
     layers: [
       // Simple Frame Border
       {

@@ -29,9 +29,6 @@ export const updateMainImage = (
 ) => {
   if (!fabricCanvas || !window.fabric || !url) return;
 
-  // --- CHANGE: Don't clear()! Remove previous image explicitly ---
-  // fabricCanvas.clear();
-
   if (imageRef.current) {
     fabricCanvas.remove(imageRef.current);
     imageRef.current = null;
@@ -55,17 +52,44 @@ export const updateMainImage = (
       fabricCanvas.setWidth(scaledWidth);
       fabricCanvas.setHeight(scaledHeight);
 
+      // --- NEW: Calculate Control Sizes based on canvas size ---
+      const maxDim = Math.max(scaledWidth, scaledHeight);
+      // Heuristic: ~2.5% of largest dimension, min 15px, max 100px
+      const cornerSize = Math.max(15, Math.min(100, maxDim * 0.025));
+      const borderScale = Math.max(2, maxDim * 0.003);
+      const touchPadding = Math.max(10, maxDim * 0.01);
+
+      // 1. Update Global Defaults (So new text/stickers use this size too)
+      window.fabric.Object.prototype.set({
+        cornerSize: cornerSize,
+        transparentCorners: false,
+        cornerColor: '#ffffff',
+        cornerStrokeColor: '#3b82f6', // Blue
+        borderColor: '#3b82f6',
+        cornerStyle: 'circle',
+        borderScaleFactor: borderScale,
+        padding: touchPadding,
+      });
+
+      // 2. Apply to Main Image
       img.set({
         selectable: activeTool === "cursor",
         evented: activeTool === "cursor",
         crossOrigin: "anonymous",
-        id: "main-image", // Tag the object
+        id: "main-image",
+        // Apply the calculated sizes
+        cornerSize: cornerSize,
+        transparentCorners: false,
+        cornerColor: '#ffffff',
+        cornerStrokeColor: '#3b82f6',
+        borderColor: '#3b82f6',
+        cornerStyle: 'circle',
+        borderScaleFactor: borderScale,
+        padding: touchPadding,
       });
 
       imageRef.current = img;
-      // Insert at the bottom stack so text/design stays on top
       fabricCanvas.insertAt(img, 0, true);
-
       fabricCanvas.centerObject(img);
       fabricCanvas.renderAll();
 
