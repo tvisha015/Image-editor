@@ -1,3 +1,4 @@
+// src/hooks/useFabric.ts
 "use client";
 
 import { useRef, useEffect, useState, useCallback, RefObject } from "react";
@@ -70,7 +71,7 @@ export const useFabric = (
   const { activeObject, contextMenuPosition, closeContextMenu } = useFabricSelection(fabricCanvas);
   const { 
     bringForward, sendBackward, bringToFront, sendToBack, duplicateObject, deleteObject,
-    addStyledText, setOverlay, removeOverlay
+    addStyledText, setOverlay, removeOverlay, updateActiveText
   } = useFabricActions(fabricCanvasRef, saveState, closeContextMenu);
 
   // Filters Hook
@@ -342,7 +343,7 @@ export const useFabric = (
               // Handle Shapes/Text (Unchanged)
               let obj;
               if (layer.type === 'text') {
-                obj = new window.fabric.IText(layer.text || "Text", { ...layer, left, top });
+                obj = new window.fabric.IText(layer.text || "Text", { ...layer, left, top, editable: false });
               } else if (layer.type === 'rect') {
                 const w = layer.width && layer.width <= 1 ? layer.width * canvasWidth : layer.width;
                 const h = layer.height && layer.height <= 1 ? layer.height * canvasHeight : layer.height;
@@ -400,5 +401,5 @@ export const useFabric = (
     undo, redo, canUndo, canRedo,
     activeObject, contextMenuPosition, closeContextMenu,
     bringForward, sendBackward, bringToFront, sendToBack, duplicateObject, deleteObject,
-    resizeCanvas, isTemplateLoading, applyTemplate,  };
+    resizeCanvas, isTemplateLoading, applyTemplate, updateActiveText, };
 };

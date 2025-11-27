@@ -380,6 +380,7 @@ export const editableTemplates: EditableTemplate[] = [
   }
 ];
 
+
 // Templates remain the same
 export const templates = [
   { id: "frame1", url: "/templates/frame1.png", previewUrl: "/templates/frame1.png" },

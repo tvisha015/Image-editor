@@ -1,6 +1,7 @@
+// src/components/Editor/ContextMenu.tsx
 "use client";
 
-import React, { FC, useState, useRef, useLayoutEffect } from "react";
+import React, { FC, useState, useRef, useLayoutEffect, useEffect } from "react";
 
 // --- Icons (Keep existing icons) ---
 const DuplicateIcon = () => (
@@ -12,6 +13,7 @@ const DeleteIcon = () => (
 const LayersIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
 );
+const EditIcon = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>);
 const ChevronRightIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
 );
@@ -22,6 +24,7 @@ const BottomIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="n
 
 interface ContextMenuProps {
   position: { x: number; y: number } | null;
+  objectType?: string;
   onClose: () => void;
   // Actions
   onDuplicate: () => void;
@@ -30,6 +33,7 @@ interface ContextMenuProps {
   onSendBackward: () => void;
   onBringToFront: () => void;
   onSendToBack: () => void;
+  onEdit: () => void;
 }
 
 const ContextMenu: FC<ContextMenuProps> = ({
@@ -41,6 +45,8 @@ const ContextMenu: FC<ContextMenuProps> = ({
   onSendBackward,
   onBringToFront,
   onSendToBack,
+  onEdit,
+  objectType,
 }) => {
   const [showLayersSubmenu, setShowLayersSubmenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -97,6 +103,19 @@ const ContextMenu: FC<ContextMenuProps> = ({
 
   if (!position) return null;
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [onClose]);
+
+  // Check if current object is text
+  const isTextObject = objectType === 'i-text' || objectType === 'textbox' || objectType === 'text';
+
   return (
     <>
       <div 
@@ -111,6 +130,11 @@ const ContextMenu: FC<ContextMenuProps> = ({
         style={{ top: menuCoords.top, left: menuCoords.left }}
         onContextMenu={(e) => e.preventDefault()}
       >
+        {isTextObject && (
+             <button onClick={onEdit} className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-50 text-left">
+                 <EditIcon /> Edit Text
+             </button>
+        )}
         {/* Duplicate */}
         <button
           onClick={onDuplicate}

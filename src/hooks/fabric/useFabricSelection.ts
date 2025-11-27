@@ -1,10 +1,8 @@
-// Handles clicking, right-clicking, and active object state.
-// src/hooks/fabric/useFabricState.ts
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 
+// FIX: Accept 'canvas' directly, not 'fabricCanvasRef'
 export const useFabricSelection = (canvas: any) => {
   const [activeObject, setActiveObject] = useState<any | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
@@ -14,31 +12,49 @@ export const useFabricSelection = (canvas: any) => {
   }, []);
 
   useEffect(() => {
+    // FIX: Check canvas directly
     if (!canvas) return;
 
-    // Right Click Listener
+    // --- 1. Handle Mouse Clicks (Control Menu Visibility) ---
     const handleMouseDown = (opt: any) => {
-      if (opt.button === 3) { // 3 is Right Click
+      // Button 3 is Right Click
+      if (opt.button === 3) {
+        // Prevent the browser's default context menu immediately
+        if(opt.e) {
+            opt.e.preventDefault();
+            opt.e.stopPropagation();
+        }
+
         if (opt.target) {
+          // A. Select the object programmatically
           canvas.setActiveObject(opt.target);
           canvas.renderAll();
+          
+          // B. Update React State
           setActiveObject(opt.target);
-          // Set menu position based on pointer
-          setContextMenuPosition({ x: opt.e.clientX, y: opt.e.clientY });
-        }
+          
+          // C. Open Custom Menu at mouse coordinates
+          setContextMenuPosition({ 
+            x: opt.e.clientX, 
+            y: opt.e.clientY 
+          });
+        } 
       } else {
-        // Left click closes menu
+        // Button 1 (Left Click) anywhere -> Close Menu
         setContextMenuPosition(null);
       }
     };
 
-    // Standard Selection Listeners
-    const updateActive = (e: any) => setActiveObject(e.selected ? e.selected[0] : null);
-    const clearActive = () => {
-        setActiveObject(null);
-        setContextMenuPosition(null);
+    // --- 2. Handle Selection Events (Control Active Object State) ---
+    const updateActive = (e: any) => {
+        setActiveObject(e.selected ? e.selected[0] : null);
     };
 
+    const clearActive = () => {
+        setActiveObject(null);
+    };
+
+    // Attach Listeners
     canvas.on('mouse:down', handleMouseDown);
     canvas.on("selection:created", updateActive);
     canvas.on("selection:updated", updateActive);
@@ -50,7 +66,7 @@ export const useFabricSelection = (canvas: any) => {
       canvas.off("selection:updated", updateActive);
       canvas.off("selection:cleared", clearActive);
     };
-  }, [canvas]);
+  }, [canvas]); // Dependency is simply [canvas]
 
   return { activeObject, contextMenuPosition, closeContextMenu };
 };

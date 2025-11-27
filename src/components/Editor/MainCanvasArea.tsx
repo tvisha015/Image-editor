@@ -38,6 +38,8 @@ interface MainCanvasAreaProps {
   // Resize
   onOpenResize: () => void;
   isTemplateLoading: boolean;
+  // Text Edit
+  onEdit: () => void;
 }
 
 const MainCanvasArea: React.FC<MainCanvasAreaProps> = (props) => {

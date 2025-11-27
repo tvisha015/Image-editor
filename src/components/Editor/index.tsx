@@ -13,6 +13,7 @@ import AdjustPanel from "./AdjustPanel";
 import DesignPanel from "./DesignPanel";
 import ContextMenu from "./ContextMenu";
 import ResizePanel from "./ResizePanel";
+import TextEditPopup from "./TextEditPopup";
 
 export type EditorTab =
   | "backgrounds"
@@ -52,7 +53,7 @@ const EditorView: FC<EditorViewProps> = ({
   const [contrast, setContrast] = useState(0);
   const [highlight, setHighlight] = useState(0);
   const [sharpen, setSharpen] = useState(0);
-  const [shadow, setShadow] = useState(0); 
+  const [shadow, setShadow] = useState(0);
   const [opacity, setOpacity] = useState(1);
   const [adjustBlur, setAdjustBlur] = useState(0);
 
@@ -60,23 +61,70 @@ const EditorView: FC<EditorViewProps> = ({
   const [isResizeOpen, setIsResizeOpen] = useState(false);
 
   // Handlers (omitted for brevity, keep your existing ones)
-  // ... keep handleSetBrightness, handleSetIsBlurEnabled etc ... 
+  // ... keep handleSetBrightness, handleSetIsBlurEnabled etc ...
   // Make sure they call setHasBeenEdited(true)
 
-  // Re-declare handlers just in case they were missing in previous context
-  const handleSetBrightness = (val: number) => { setBrightness(val); setHasBeenEdited(true); };
-  const handleSetContrast = (val: number) => { setContrast(val); setHasBeenEdited(true); };
-  const handleSetHighlight = (val: number) => { setHighlight(val); setHasBeenEdited(true); };
-  const handleSetSharpen = (val: number) => { setSharpen(val); setHasBeenEdited(true); };
-  const handleSetShadow = (val: number) => { setShadow(val); setHasBeenEdited(true); };
-  const handleSetOpacity = (val: number) => { setOpacity(val); setHasBeenEdited(true); };
-  const handleSetAdjustBlur = (val: number) => { setAdjustBlur(val); setHasBeenEdited(true); };
+  // --- STATES FOR TEXT EDITING ---
+  // Is the pop-up open?
+  const [isTextEditOpen, setIsTextEditOpen] = useState(false);
+  // What text starts in the box?
+  const [textEditInitialValue, setTextEditInitialValue] = useState("");
+  // Where should the box appear? (reusing contextMenuPosition logic)
+  const [textEditPosition, setTextEditPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
-  const handleSetIsBlurEnabled = (val: boolean) => { setIsBlurEnabled(val); setHasBeenEdited(true); };
-  const handleSetBlurType = (val: BlurType) => { setBlurType(val); setHasBeenEdited(true); };
-  const handleSetBlurValue = (val: number) => { setBlurValue(val); setHasBeenEdited(true); };
-  const handleSetIsFilterEnabled = (val: boolean) => { setIsFilterEnabled(val); setHasBeenEdited(true); };
-  const handleSetFilterType = (val: FilterType) => { setFilterType(val); setHasBeenEdited(true); };
+  // Re-declare handlers just in case they were missing in previous context
+  const handleSetBrightness = (val: number) => {
+    setBrightness(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetContrast = (val: number) => {
+    setContrast(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetHighlight = (val: number) => {
+    setHighlight(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetSharpen = (val: number) => {
+    setSharpen(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetShadow = (val: number) => {
+    setShadow(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetOpacity = (val: number) => {
+    setOpacity(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetAdjustBlur = (val: number) => {
+    setAdjustBlur(val);
+    setHasBeenEdited(true);
+  };
+
+  const handleSetIsBlurEnabled = (val: boolean) => {
+    setIsBlurEnabled(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetBlurType = (val: BlurType) => {
+    setBlurType(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetBlurValue = (val: number) => {
+    setBlurValue(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetIsFilterEnabled = (val: boolean) => {
+    setIsFilterEnabled(val);
+    setHasBeenEdited(true);
+  };
+  const handleSetFilterType = (val: FilterType) => {
+    setFilterType(val);
+    setHasBeenEdited(true);
+  };
 
   useEffect(() => {
     if (sessionStorage.getItem("bgRemoved") === "true") {
@@ -120,6 +168,7 @@ const EditorView: FC<EditorViewProps> = ({
     duplicateObject,
     deleteObject,
     resizeCanvas,
+    updateActiveText,
   } = useFabric(
     currentImageUrl,
     activeTool,
@@ -161,10 +210,40 @@ const EditorView: FC<EditorViewProps> = ({
 
   // --- Template Selection Handler ---
   const handleTemplateSelect = (url: string) => {
-      // You can add logic here if you have different types of templates.
-      // Based on your description (Posters), we treat them as BACKGROUNDS.
-      setBackgroundImageFromUrl(url);
+    // You can add logic here if you have different types of templates.
+    // Based on your description (Posters), we treat them as BACKGROUNDS.
+    setBackgroundImageFromUrl(url);
   };
+
+  // 1. Called when "Edit" is clicked in Context Menu
+  const handleOpenTextEdit = useCallback(() => {
+    if (activeObject && contextMenuPosition) {
+      // Get current text values
+      const currentText = activeObject.text || "";
+      setTextEditInitialValue(currentText);
+      // Use current menu position for popup
+      setTextEditPosition(contextMenuPosition);
+      // Close menu, open popup
+      closeContextMenu();
+      setIsTextEditOpen(true);
+    }
+  }, [activeObject, contextMenuPosition, closeContextMenu]);
+
+  // 2. Called when "Apply" is clicked in the popup
+  const handleApplyTextEdit = useCallback(
+    (newText: string) => {
+      updateActiveText(newText);
+      setIsTextEditOpen(false);
+      setTextEditPosition(null);
+    },
+    [updateActiveText]
+  );
+
+  // 3. Called when "Cancel" is clicked or clicking outside
+  const handleCancelTextEdit = useCallback(() => {
+    setIsTextEditOpen(false);
+    setTextEditPosition(null);
+  }, []);
   return (
     <div className="w-full flex-1 flex overflow-hidden">
       <EditorNavSidebar activeTab={activeTab} onTabChange={handleTabChange} />
@@ -195,7 +274,17 @@ const EditorView: FC<EditorViewProps> = ({
         onDelete={deleteObject}
         onOpenResize={() => setIsResizeOpen(true)}
         isTemplateLoading={isTemplateLoading}
+        onEdit={handleOpenTextEdit} // The handler to open popup
       />
+
+      {isTextEditOpen && textEditPosition && (
+        <TextEditPopup
+          initialText={textEditInitialValue}
+          position={textEditPosition}
+          onApply={handleApplyTextEdit}
+          onCancel={handleCancelTextEdit}
+        />
+      )}
 
       {/* Panels */}
       {activeTab === "backgrounds" && (
@@ -267,13 +356,15 @@ const EditorView: FC<EditorViewProps> = ({
           onSendBackward={sendBackward}
           onBringToFront={bringToFront}
           onSendToBack={sendToBack}
+          onEdit={handleOpenTextEdit} 
+          objectType={activeObject?.type}
         />
       )}
 
       {isResizeOpen && (
-        <ResizePanel 
-            onResize={resizeCanvas} 
-            onClose={() => setIsResizeOpen(false)} 
+        <ResizePanel
+          onResize={resizeCanvas}
+          onClose={() => setIsResizeOpen(false)}
         />
       )}
     </div>

@@ -108,13 +108,28 @@ export const useFabricActions = (
     if (style.shadow) shadowObj = new window.fabric.Shadow(style.shadow);
     const textObj = new window.fabric.IText(text, {
       left: canvas.getWidth() / 2, top: canvas.getHeight() / 2, originX: 'center', originY: 'center',
-      ...style, shadow: shadowObj,
+      ...style, 
+      shadow: shadowObj,
+      editable: false, 
     });
     canvas.add(textObj);
     canvas.setActiveObject(textObj);
     canvas.renderAll();
     // saveState handled by object:added event in main hook
   }, [fabricCanvasRef]);
+
+  // Update the text content of the active object
+  const updateActiveText = useCallback((newText: string) => {
+    const canvas = fabricCanvasRef.current;
+    const activeObj = canvas?.getActiveObject();
+    
+    // Check if it's a text type object before trying to set text
+    if (canvas && activeObj && (activeObj.type === 'i-text' || activeObj.type === 'textbox' || activeObj.type === 'text')) {
+        activeObj.set('text', newText);
+        canvas.renderAll();
+        saveState(true);
+    }
+  }, [fabricCanvasRef, saveState]);
 
   const setOverlay = useCallback((imageUrl: string) => {
     const canvas = fabricCanvasRef.current;
@@ -158,6 +173,6 @@ export const useFabricActions = (
   return {
     bringForward, sendBackward, bringToFront, sendToBack,
     duplicateObject, deleteObject,
-    addStyledText, setOverlay, removeOverlay
+    addStyledText, setOverlay, removeOverlay, updateActiveText,
   };
 };
